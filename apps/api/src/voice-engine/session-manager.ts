@@ -1,0 +1,535 @@
+import type { WebSocket } from "ws";
+import { ObjectId } from "mongodb";
+import type { TranscriptTurn, Call } from "@voiceplatform/shared";
+
+import { getDb } from "../db/connection.js";
+import type { RealtimeProvider } from "../adapters/llm/types.js";
+import { createLogger } from "../lib/logger.js";
+import {
+  mulaw8kToPcm16_24k,
+  pcm16_24kToMulaw8k,
+  alaw8kToPcm16_24k,
+  pcm16_24kToAlaw8k,
+  makeResampleState,
+  type ResampleState,
+} from "./audio-pipeline.js";
+
+const log = createLogger("session");
+
+/**
+ * Audio format pairs the session knows how to bridge.
+ *
+ * - `passthrough` (default for tests): no conversion. Whatever bytes
+ *   arrive in `media.payload` are forwarded verbatim to
+ *   `provider.sendAudio()`, and provider audio frames are forwarded
+ *   verbatim back. Used by the echo-bot test + FakeRealtimeProvider.
+ *
+ * - `mulaw8k-pcm16_24k`: telephony carries µ-law 8 kHz; the realtime
+ *   model speaks PCM16 24 kHz (OpenAI Realtime, Gemini Live default).
+ *   Convert at both directions of the boundary. Outbound conversion
+ *   keeps a `ResampleState` so we don't drop samples at frame edges.
+ */
+export type SessionAudioFormat = "passthrough" | "mulaw8k-pcm16_24k";
+
+export interface SessionConfig {
+  callId: string;
+  tenantId?: string;
+  provider: RealtimeProvider;
+  systemPrompt?: string;
+  greeting?: string;
+  customParameters?: Record<string, string>;
+  /**
+   * If true, the session waits for a `{event:"start"}` frame before
+   * connecting to the realtime provider — this is the Twilio/Voicelink
+   * pattern where the call SID + custom parameters arrive in the first
+   * frame after the WS upgrade. If false (or omitted), the session
+   * connects + greets immediately on `start()` — used for the outbound
+   * path where we already know the identity from the URL.
+   */
+  waitForStartFrame?: boolean;
+  /**
+   * Called on the first inbound `{event:"start"}` frame so the WS
+   * router can backfill the call's `providerCallId` and any
+   * `customParameters` Voicelink round-trips to us.
+   */
+  onStartFrame?: (info: StartFrameInfo) => void;
+  /**
+   * Audio bridging mode. Defaults to `passthrough` for back-compat with
+   * existing tests; production telephony paths set `mulaw8k-pcm16_24k`.
+   */
+  audioFormat?: SessionAudioFormat;
+}
+
+export interface StartFrameInfo {
+  /** Provider-assigned call id (Twilio: callSid; Voicelink: unique_id). */
+  providerCallId?: string;
+  /** Streaming session id (Twilio: streamSid). */
+  streamSid?: string;
+  /** Optional metadata the provider round-tripped from originateCall. */
+  customParameters?: Record<string, string>;
+}
+
+/**
+ * Owns a single call's WS connection from the telephony side and pumps
+ * audio + text to/from a RealtimeProvider. Protocol shape on the
+ * telephony side is the Twilio-style envelope (Voicelink confirmed
+ * compatible 2026-05-28).
+ *
+ * Frame shapes:
+ *   - `{event:"start", start:{callSid, streamSid, customParameters}}`
+ *     — first frame, identifies the call.
+ *   - `{event:"media", media:{payload: <base64 mulaw>}}` — audio.
+ *   - `{event:"text", text}` — out-of-band text inject (tests, tools).
+ *   - `{event:"clear"}` — caller interrupted (barge-in signal).
+ *   - `{event:"stop"}` — clean close.
+ */
+export class CallSession {
+  private startedAt = Date.now();
+  private started = false;
+  /** Diagnostic: count of inbound telephony frames seen, for live debugging. */
+  private framesIn = 0;
+  /**
+   * Telephony companding codec, learned from the start frame's
+   * `media_format.encoding`. VoiceLink = "audio/alaw"; Twilio = µ-law.
+   * Default to µ-law (mulaw) so standard tests and Twilio conform.
+   */
+  private telephonyEncoding = "audio/mulaw";
+  /** Outbound resampler state — preserved across audio frames. */
+  private outboundResample: ResampleState = makeResampleState();
+  /** Accumulated call transcript turns. */
+  private turns: TranscriptTurn[] = [];
+  private currentAssistantText = "";
+  private currentUserText = "";
+  /**
+   * Outbound jitter buffer of companded 8 kHz telephony bytes. The provider
+   * delivers audio in bursts; VoiceLink expects a steady 20 ms frame cadence
+   * and tears down the bot leg (cause 32) if media stops. We enqueue here and
+   * a 20 ms pacer drains exactly one 20 ms frame per tick, sending silence
+   * when the agent isn't speaking so the leg never goes idle.
+   */
+  private outQueue: Buffer = Buffer.alloc(0);
+  private paceTimer?: ReturnType<typeof setInterval>;
+  /** Streaming session id echoed back to VoiceLink on outbound media. */
+  private streamSid?: string;
+  private customParameters: Record<string, string> = {};
+  /** Bytes per 20 ms frame at 8 kHz: µ-law/A-law = 1 byte/sample = 160. */
+  private static readonly FRAME_BYTES = 160;
+  /** A-law digital silence is 0xD5; µ-law is 0xFF. */
+  private silenceByte(): number {
+    return this.telephonyEncoding.includes("mulaw") || this.telephonyEncoding.includes("pcmu")
+      ? 0xff
+      : 0xd5;
+  }
+
+  /** Telephony bytes (8 kHz companded) → provider PCM16 24 kHz. */
+  private telephonyToProvider(wire: Buffer): Buffer {
+    if (this.cfg.audioFormat !== "mulaw8k-pcm16_24k") return wire; // passthrough/fake
+    return this.telephonyEncoding.includes("mulaw") || this.telephonyEncoding.includes("pcmu")
+      ? mulaw8kToPcm16_24k(wire)
+      : alaw8kToPcm16_24k(wire);
+  }
+
+  /** Provider PCM16 24 kHz → telephony bytes (8 kHz companded). */
+  private providerToTelephony(frame: Buffer): Buffer {
+    if (this.cfg.audioFormat !== "mulaw8k-pcm16_24k") return frame; // passthrough/fake
+    return this.telephonyEncoding.includes("mulaw") || this.telephonyEncoding.includes("pcmu")
+      ? pcm16_24kToMulaw8k(frame, this.outboundResample)
+      : pcm16_24kToAlaw8k(frame, this.outboundResample);
+  }
+
+  constructor(
+    private socket: WebSocket,
+    private cfg: SessionConfig,
+  ) {
+    if (cfg.customParameters) {
+      this.customParameters = { ...cfg.customParameters };
+    }
+  }
+
+  updateCallId(newCallId: string): void {
+    log.info({ oldCallId: this.cfg.callId, newCallId }, "updating session callId");
+    this.cfg.callId = newCallId;
+  }
+
+  async start(): Promise<void> {
+    this.socket.on("message", (raw) => this.onMessage(raw.toString()));
+    this.socket.on("close", (code: number, reason: Buffer) => {
+      log.info(
+        { callId: this.cfg.callId, code, reason: reason?.toString() || undefined },
+        "telephony socket closed",
+      );
+      this.close();
+    });
+    this.socket.on("error", (err) => {
+      log.warn({ callId: this.cfg.callId, err }, "socket error");
+    });
+
+    if (!this.cfg.waitForStartFrame) {
+      await this.bootProvider();
+    }
+  }
+
+  private async bootProvider(): Promise<void> {
+    if (this.started) return;
+    this.started = true;
+
+    // Dynamically interpolate variables in system prompt before connect
+    if (this.cfg.provider.updateSystemPrompt && this.cfg.systemPrompt) {
+      const interpolatedPrompt = interpolateTemplate(this.cfg.systemPrompt, this.customParameters);
+      this.cfg.provider.updateSystemPrompt(interpolatedPrompt);
+    }
+
+    await this.cfg.provider.connect();
+
+    this.cfg.provider.onAudio((frame) => {
+      // If we have a pending user transcript, commit it first!
+      if (this.currentUserText.trim()) {
+        this.turns.push({
+          role: "user",
+          text: this.currentUserText.trim(),
+          ts: new Date(),
+          ms: Date.now() - this.startedAt,
+        });
+        this.currentUserText = "";
+        this.saveTranscript().catch((err) => log.error({ err }, "saveTranscript failed"));
+      }
+
+      if (this.cfg.audioFormat !== "mulaw8k-pcm16_24k") {
+        if (this.socket.readyState === this.socket.OPEN) {
+          const media: Record<string, unknown> = { payload: frame.toString("base64") };
+          const envelope: Record<string, unknown> = { event: "media", media };
+          if (this.streamSid) {
+            envelope.streamSid = this.streamSid;
+            envelope.stream_sid = this.streamSid;
+          }
+          this.socket.send(JSON.stringify(envelope));
+        }
+        return;
+      }
+
+      // Convert provider PCM16 24 kHz → telephony companded 8 kHz, then
+      // ENQUEUE it. The pacer drains it at a steady 20 ms cadence. Stateful
+      // resampler holds 0–2 samples between calls so we don't drop a
+      // fraction of a frame at chunk boundaries.
+      const wireFrame = this.providerToTelephony(frame);
+      if (wireFrame.length === 0) return;
+      this.outQueue = Buffer.concat([this.outQueue, wireFrame]);
+    });
+    this.cfg.provider.onError((err) => {
+      log.error({ callId: this.cfg.callId, err }, "provider error");
+    });
+
+    // Accumulate assistant text deltas
+    this.cfg.provider.onText((delta) => {
+      // If we have a pending user transcript, commit it first!
+      if (this.currentUserText.trim()) {
+        this.turns.push({
+          role: "user",
+          text: this.currentUserText.trim(),
+          ts: new Date(),
+          ms: Date.now() - this.startedAt,
+        });
+        this.currentUserText = "";
+        this.saveTranscript().catch((err) => log.error({ err }, "saveTranscript failed"));
+      }
+      this.currentAssistantText += delta;
+    });
+
+    // Save assistant turn when it completes
+    this.cfg.provider.onTurnEnd(() => {
+      if (this.currentAssistantText.trim()) {
+        this.turns.push({
+          role: "assistant",
+          text: this.currentAssistantText.trim(),
+          ts: new Date(),
+          ms: Date.now() - this.startedAt,
+        });
+        this.currentAssistantText = "";
+        this.saveTranscript().catch((err) => log.error({ err }, "saveTranscript failed"));
+      }
+    });
+
+    // Accumulate and save user transcripts
+    if (this.cfg.provider.onUserTranscript) {
+      this.cfg.provider.onUserTranscript((text, finished) => {
+        this.currentUserText = text;
+        if (finished) {
+          if (this.currentUserText.trim()) {
+            this.turns.push({
+              role: "user",
+              text: this.currentUserText.trim(),
+              ts: new Date(),
+              ms: Date.now() - this.startedAt,
+            });
+            this.currentUserText = "";
+            this.saveTranscript().catch((err) => log.error({ err }, "saveTranscript failed"));
+          }
+        }
+      });
+    }
+
+    // Start the 20 ms outbound pacer: keeps a continuous media stream to
+    // VoiceLink (real audio when the agent speaks, silence otherwise) so the
+    // bot leg is never torn down for going idle.
+    this.startPacer();
+
+    if (this.cfg.greeting) {
+      const interpolatedGreeting = interpolateTemplate(this.cfg.greeting, this.customParameters);
+      this.cfg.provider.sendText(interpolatedGreeting);
+    }
+  }
+
+  /** Send one 20 ms telephony media frame (real audio or silence) every 20 ms. */
+  private startPacer(): void {
+    if (this.cfg.audioFormat !== "mulaw8k-pcm16_24k") return;
+    if (this.paceTimer) return;
+    const F = CallSession.FRAME_BYTES;
+    this.paceTimer = setInterval(() => {
+      if (this.socket.readyState !== this.socket.OPEN) return;
+      let frame: Buffer;
+      if (this.outQueue.length >= F) {
+        frame = this.outQueue.subarray(0, F);
+        this.outQueue = this.outQueue.subarray(F);
+      } else if (this.outQueue.length > 0) {
+        // Pad a short tail up to a full frame with silence.
+        frame = Buffer.concat([this.outQueue, Buffer.alloc(F - this.outQueue.length, this.silenceByte())]);
+        this.outQueue = Buffer.alloc(0);
+      } else {
+        // Idle: comfort silence keeps VoiceLink's bot leg alive.
+        frame = Buffer.alloc(F, this.silenceByte());
+      }
+      const media: Record<string, unknown> = { payload: frame.toString("base64") };
+      const envelope: Record<string, unknown> = { event: "media", media };
+      if (this.streamSid) {
+        envelope.streamSid = this.streamSid;
+        envelope.stream_sid = this.streamSid;
+      }
+      this.socket.send(JSON.stringify(envelope));
+    }, 20);
+  }
+
+  private onMessage(raw: string): void {
+    let msg: {
+      event?: string;
+      media?: { payload?: string };
+      text?: string;
+      start?: {
+        callSid?: string;
+        streamSid?: string;
+        customParameters?: Record<string, string>;
+      };
+    };
+    try {
+      msg = JSON.parse(raw);
+    } catch {
+      // Non-JSON frame — log a sample so we can see if VoiceLink sends
+      // raw binary/base64 audio instead of the Twilio JSON envelope.
+      if (this.framesIn < 5) {
+        log.warn(
+          { callId: this.cfg.callId, sample: raw.slice(0, 80), len: raw.length },
+          "non-JSON telephony frame",
+        );
+      }
+      this.framesIn++;
+      return;
+    }
+
+    // Live diagnostic: log the first few frames + any unrecognized event so
+    // the real VoiceLink call reveals its exact protocol shape.
+    this.framesIn++;
+    if (this.framesIn <= 5) {
+      log.info(
+        { callId: this.cfg.callId, event: msg.event, keys: Object.keys(msg) },
+        "telephony frame",
+      );
+    }
+
+    if (msg.event === "start") {
+      // Learn the real telephony codec from the provider's declared format.
+      const start = msg.start as Record<string, unknown> | undefined;
+      const mf = start?.media_format as { encoding?: string; sample_rate?: string } | undefined;
+      if (mf?.encoding) {
+        this.telephonyEncoding = String(mf.encoding).toLowerCase();
+        log.info(
+          { callId: this.cfg.callId, encoding: this.telephonyEncoding, sampleRate: mf.sample_rate },
+          "telephony media format detected",
+        );
+      }
+      // Echo the stream id back on outbound media (Twilio-style providers
+      // key media frames by streamSid).
+      const sid = (start?.stream_sid as string) ?? (msg as { stream_sid?: string }).stream_sid;
+      if (sid) this.streamSid = sid;
+
+      const startParams = (start?.custom_parameters as Record<string, string>) ?? msg.start?.customParameters;
+      if (startParams) {
+        this.customParameters = {
+          ...this.customParameters,
+          ...startParams,
+        };
+      }
+
+      if (this.cfg.onStartFrame) {
+        // VoiceLink uses snake_case (call_sid/stream_sid/custom_parameters);
+        // Twilio uses camelCase. Accept both.
+        this.cfg.onStartFrame({
+          providerCallId: (start?.call_sid as string) ?? msg.start?.callSid,
+          streamSid: (start?.stream_sid as string) ?? msg.start?.streamSid,
+          customParameters:
+            (start?.custom_parameters as Record<string, string>) ??
+            msg.start?.customParameters,
+        });
+      }
+      // Boot the realtime provider now if we were waiting for identity.
+      this.bootProvider().catch((err) => {
+        log.error({ callId: this.cfg.callId, err }, "provider boot failed");
+        this.close();
+      });
+      return;
+    }
+
+    if (!this.started) {
+      // Discard pre-start frames — we shouldn't be receiving media
+      // before the provider has been connected.
+      return;
+    }
+
+    if (msg.event === "media" && msg.media?.payload) {
+      const wireFrame = Buffer.from(msg.media.payload, "base64");
+      this.cfg.provider.sendAudio(this.telephonyToProvider(wireFrame));
+    } else if (msg.event === "text" && msg.text) {
+      this.cfg.provider.sendText(msg.text);
+    } else if (msg.event === "clear") {
+      // Voicelink barge-in: customer interrupted, stop the agent
+      // talking. Cancels any in-flight model response (OpenAI Realtime
+      // supports response.cancel; other providers no-op cleanly).
+      // Also resets the outbound resampler so we don't carry stale
+      // tail samples from the cancelled response into the next one.
+      log.info({ callId: this.cfg.callId }, "clear event — cancelling response");
+
+      // Save whatever assistant said so far before clearing
+      if (this.currentAssistantText.trim()) {
+        this.turns.push({
+          role: "assistant",
+          text: this.currentAssistantText.trim() + "...",
+          ts: new Date(),
+          ms: Date.now() - this.startedAt,
+        });
+        this.currentAssistantText = "";
+        this.saveTranscript().catch((err) => log.error({ err }, "saveTranscript failed"));
+      }
+
+      this.cfg.provider.cancel?.();
+      this.outboundResample = makeResampleState();
+      // Drop any queued agent audio so the agent stops talking immediately.
+      this.outQueue = Buffer.alloc(0);
+    } else if (msg.event === "stop") {
+      this.close();
+    }
+  }
+
+  private closed = false;
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    if (this.paceTimer) {
+      clearInterval(this.paceTimer);
+      this.paceTimer = undefined;
+    }
+
+    // Save final transcript state if there is any trailing unsaved text
+    let shouldSaveFinal = false;
+    if (this.currentAssistantText.trim()) {
+      this.turns.push({
+        role: "assistant",
+        text: this.currentAssistantText.trim(),
+        ts: new Date(),
+        ms: Date.now() - this.startedAt,
+      });
+      this.currentAssistantText = "";
+      shouldSaveFinal = true;
+    }
+    if (this.currentUserText.trim()) {
+      this.turns.push({
+        role: "user",
+        text: this.currentUserText.trim(),
+        ts: new Date(),
+        ms: Date.now() - this.startedAt,
+      });
+      this.currentUserText = "";
+      shouldSaveFinal = true;
+    }
+
+    if (shouldSaveFinal || this.turns.length > 0) {
+      await this.saveTranscript().catch((err) => log.error({ err }, "final saveTranscript failed"));
+      // Trigger background call summary and sentiment analysis
+      this.analyzeAndStoreCallDetails().catch((err) =>
+        log.error({ err, callId: this.cfg.callId }, "background call analysis failed"),
+      );
+    }
+
+    const ms = Date.now() - this.startedAt;
+    log.info({ callId: this.cfg.callId, ms }, "session closed");
+    if (this.started) {
+      await this.cfg.provider.close();
+    }
+    if (this.socket.readyState === this.socket.OPEN) this.socket.close();
+  }
+
+  private async saveTranscript(): Promise<void> {
+    try {
+      const db = getDb();
+      await db.collection("transcripts").updateOne(
+        { callId: this.cfg.callId },
+        {
+          $set: {
+            turns: this.turns,
+            updatedAt: new Date(),
+          },
+          $setOnInsert: {
+            _id: new ObjectId().toString(),
+            tenantId: this.cfg.tenantId || "pending",
+            callId: this.cfg.callId,
+            createdAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+    } catch (err) {
+      log.error({ callId: this.cfg.callId, err }, "failed to save transcript");
+    }
+  }
+
+  private async analyzeAndStoreCallDetails(): Promise<void> {
+    try {
+      const { analyzeCall } = await import("../lib/analyzer.js");
+      const analysis = await analyzeCall(this.turns);
+      const db = getDb();
+
+      // 1. Update the transcript with the summary
+      await db.collection("transcripts").updateOne(
+        { callId: this.cfg.callId },
+        { $set: { summary: analysis.summary, updatedAt: new Date() } }
+      );
+
+      // 2. Update the call record with the resolved sentiment
+      await db.collection<Call>("calls").updateOne(
+        { _id: this.cfg.callId },
+        { $set: { sentiment: analysis.sentiment, updatedAt: new Date() } }
+      );
+
+      log.info(
+        { callId: this.cfg.callId, sentiment: analysis.sentiment, hasSummary: !!analysis.summary },
+        "call analysis (gist + sentiment) stored successfully"
+      );
+    } catch (err) {
+      log.error({ err, callId: this.cfg.callId }, "failed to analyze call details");
+    }
+  }
+}
+
+function interpolateTemplate(template: string, variables: Record<string, string>): string {
+  return template.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+    const trimmed = key.trim();
+    return variables[trimmed] !== undefined ? variables[trimmed] : match;
+  });
+}
