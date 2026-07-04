@@ -12,6 +12,7 @@ import { flowsRouter } from "./routes/flows.routes.js";
 import { voiceClonesRouter } from "./routes/voice-clones.routes.js";
 import { voicesRouter } from "./routes/voices.routes.js";
 import { webhooksRouter } from "./routes/webhooks.routes.js";
+import { dashboardRouter } from "./routes/dashboard.routes.js";
 
 export function createApp(): Express {
   const app = express();
@@ -39,6 +40,7 @@ export function createApp(): Express {
   app.use("/calls", callsRouter);
   app.use("/campaigns", campaignsRouter);
   app.use("/credits", creditsRouter);
+  app.use("/dashboard", dashboardRouter);
   app.use("/dids", didsRouter);
   app.use("/flows", flowsRouter);
   app.use("/voice-clones", voiceClonesRouter);

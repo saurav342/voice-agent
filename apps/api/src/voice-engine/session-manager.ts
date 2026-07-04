@@ -16,6 +16,16 @@ import {
 
 const log = createLogger("session");
 
+const DEFAULT_END_CALL_TRIGGERS = [
+  "goodbye",
+  "bye bye",
+  "bye-bye",
+  "have a great day",
+  "have a nice day",
+  "talk to you later",
+  "talk to you soon",
+];
+
 /**
  * Audio format pairs the session knows how to bridge.
  *
@@ -53,6 +63,10 @@ export interface SessionConfig {
    * `customParameters` Voicelink round-trips to us.
    */
   onStartFrame?: (info: StartFrameInfo) => void;
+  /**
+   * Target phrases that end the call session if detected in the assistant's turn.
+   */
+  endCallTriggers?: string[];
   /**
    * Audio bridging mode. Defaults to `passthrough` for back-compat with
    * existing tests; production telephony paths set `mulaw8k-pcm16_24k`.
@@ -238,14 +252,16 @@ export class CallSession {
     // Save assistant turn when it completes
     this.cfg.provider.onTurnEnd(() => {
       if (this.currentAssistantText.trim()) {
+        const text = this.currentAssistantText.trim();
         this.turns.push({
           role: "assistant",
-          text: this.currentAssistantText.trim(),
+          text,
           ts: new Date(),
           ms: Date.now() - this.startedAt,
         });
         this.currentAssistantText = "";
         this.saveTranscript().catch((err) => log.error({ err }, "saveTranscript failed"));
+        this.checkEndCallTriggers(text);
       }
     });
 
@@ -394,9 +410,11 @@ export class CallSession {
     }
 
     if (msg.event === "media" && msg.media?.payload) {
+      if (this.hangupInitiated) return;
       const wireFrame = Buffer.from(msg.media.payload, "base64");
       this.cfg.provider.sendAudio(this.telephonyToProvider(wireFrame));
     } else if (msg.event === "text" && msg.text) {
+      if (this.hangupInitiated) return;
       this.cfg.provider.sendText(msg.text);
     } else if (msg.event === "clear") {
       // Voicelink barge-in: customer interrupted, stop the agent
@@ -425,6 +443,53 @@ export class CallSession {
     } else if (msg.event === "stop") {
       this.close();
     }
+  }
+
+  private hangupInitiated = false;
+
+  private checkEndCallTriggers(text: string): void {
+    const cleanText = text.toLowerCase();
+    const triggers = this.cfg.endCallTriggers && this.cfg.endCallTriggers.length > 0
+      ? this.cfg.endCallTriggers
+      : DEFAULT_END_CALL_TRIGGERS;
+
+    for (const trigger of triggers) {
+      const cleanTrigger = trigger.toLowerCase();
+      const escapedTrigger = cleanTrigger.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`\\b${escapedTrigger}\\b`, "i");
+      if (regex.test(cleanText)) {
+        log.info(
+          { callId: this.cfg.callId, trigger, matchedText: text },
+          "end call trigger matched — initiating hangup"
+        );
+        this.initiateHangup();
+        break;
+      }
+    }
+  }
+
+  private initiateHangup(): void {
+    if (this.hangupInitiated) return;
+    this.hangupInitiated = true;
+    log.info({ callId: this.cfg.callId }, "initiating call hangup");
+
+    if (this.cfg.audioFormat !== "mulaw8k-pcm16_24k") {
+      // In passthrough/test mode, close after a brief delay
+      setTimeout(() => {
+        this.close().catch((err) => log.error({ err }, "error closing session"));
+      }, 1000);
+      return;
+    }
+
+    // Monitor the pacer queue
+    const checkInterval = setInterval(() => {
+      if (this.outQueue.length === 0) {
+        clearInterval(checkInterval);
+        setTimeout(() => {
+          this.close().catch((err) => log.error({ err }, "error closing session after drain"));
+        }, 1000);
+      }
+    }, 100);
   }
 
   private closed = false;

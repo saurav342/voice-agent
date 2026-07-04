@@ -102,18 +102,41 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
  * row in the previous page.
  */
 callsRouter.get("/", async (req: Request, res: Response) => {
-  const limit = Math.min(200, Math.max(1, Number(req.query.limit ?? 50) || 50));
+  const limit = Math.min(5000, Math.max(1, Number(req.query.limit ?? 50) || 50));
   const filter: Record<string, unknown> = {};
   for (const key of ["status", "direction", "agentId", "campaignId"] as const) {
     const v = req.query[key];
     if (typeof v === "string" && v.length > 0) filter[key] = v;
   }
+  /* ── Date range filtering (from / to) ──────────────────────── */
+  const fromDate = req.query.from;
+  const toDate = req.query.to;
+  const createdAtFilter: Record<string, unknown> = {};
+
+  if (typeof fromDate === "string") {
+    const parsed = new Date(fromDate);
+    if (Number.isFinite(parsed.getTime())) {
+      createdAtFilter.$gte = parsed;
+    }
+  }
+  if (typeof toDate === "string") {
+    const parsed = new Date(toDate);
+    if (Number.isFinite(parsed.getTime())) {
+      createdAtFilter.$lte = parsed;
+    }
+  }
+
+  /* ── Cursor pagination (before) ──────────────────────────── */
   const before = req.query.before;
   if (typeof before === "string") {
     const parsed = new Date(before);
     if (Number.isFinite(parsed.getTime())) {
-      filter.createdAt = { $lt: parsed };
+      createdAtFilter.$lt = parsed;
     }
+  }
+
+  if (Object.keys(createdAtFilter).length > 0) {
+    filter.createdAt = createdAtFilter;
   }
 
   const list = await getDb()
@@ -127,16 +150,20 @@ callsRouter.get("/", async (req: Request, res: Response) => {
 });
 
 callsRouter.get("/:id", async (req: Request, res: Response) => {
+  const queryId = ObjectId.isValid(req.params.id)
+    ? { $in: [req.params.id, new ObjectId(req.params.id)] }
+    : req.params.id;
+
   const call = await getDb()
     .collection<Call>("calls")
-    .findOne(tenantScope(req, { _id: req.params.id }));
+    .findOne(tenantScope(req, { _id: queryId as any }));
   if (!call) {
     res.status(404).end();
     return;
   }
   const transcript = await getDb()
     .collection("transcripts")
-    .findOne({ callId: req.params.id });
+    .findOne({ callId: queryId as any });
 
   res.json({
     ...call,

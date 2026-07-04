@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   // Transpile workspace packages so Turbopack handles their `.js` ESM
   // re-exports correctly (the source is `.ts`, NodeNext-style suffixed).
   transpilePackages: ["@voiceplatform/shared"],
+  // Configure Turbopack root for module resolution in the pnpm workspace
+  turbopack: {
+    root: path.resolve(process.cwd(), "../.."),
+  },
 };
 
 export default nextConfig;

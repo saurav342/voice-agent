@@ -1,6 +1,6 @@
-# RapidX AI — Voice Platform (VoiceLink + Gemini Live)
+# Kelsa AI — Voice Platform (VoiceLink + Gemini Live)
 
-RapidX AI branded voice-agent platform. Multi-tenant Node API + Next.js UI that
+Kelsa AI branded voice-agent platform. Multi-tenant Node API + Next.js UI that
 connects **VoiceLink** telephony (Indian DIDs) to a **Gemini Live** voice agent
 for inbound and outbound phone calls.
 
@@ -8,7 +8,7 @@ for inbound and outbound phone calls.
 - `apps/api` — Node/Express API (:4000). MongoDB + Redis. Owns: auth, tenants,
   DIDs, agents, campaigns, credits, the VoiceLink telephony adapter, and the
   realtime voice pipeline (WS bridge + LLM provider).
-- `apps/ui` — Next.js 16 dashboard (:3000). Branded "RapidX AI".
+- `apps/ui` — Next.js 16 dashboard (:3000). Branded "Kelsa AI".
 - `packages/shared` — zod schemas shared by api + ui. **Build it first**
   (`pnpm --filter @voiceplatform/shared build`) or the api/ui won't resolve types.
 
@@ -63,7 +63,7 @@ redis-server &                                  # :6379
 # api + ui (each loads apps/api/.env via dotenv)
 pnpm --filter @voiceplatform/api dev   # :4000
 pnpm --filter @voiceplatform/ui dev    # :3000  (PORT=3000)
-# seed RapidX tenant + Gemini agent + DIDs + login users
+# seed Kelsa tenant + Gemini agent + DIDs + login users
 pnpm --filter @voiceplatform/api exec tsx scripts/seed.ts
 ```
 Login (seeded): owner `swati@rapidxai.com` / `RapidX2026`; superadmin

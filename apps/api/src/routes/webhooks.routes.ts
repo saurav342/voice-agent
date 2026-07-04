@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { ObjectId } from "mongodb";
 import {
   VoicelinkCallEvent,
   voicelinkToCallStatus,
@@ -60,6 +61,7 @@ webhooksRouter.post("/voicelink", async (req, res) => {
       hangupCause?: string | null;
       durationSec?: number | null;
       ringDurationSec?: number | null;
+      customParameters?: any;
     };
   };
   if (typeof evt.event === "string" && evt.call && typeof evt.call === "object") {
@@ -90,18 +92,25 @@ webhooksRouter.post("/voicelink", async (req, res) => {
     const setFields: Record<string, any> = {
       direction, fromNumber: String(c.from ?? ""), toNumber: String(c.to ?? ""),
       status, durationSec: c.durationSec ?? 0, updatedAt: now,
+      providerCallId: normalizedCallId,
     };
     if (typeof rawRecordingUrl === "string" && rawRecordingUrl.trim().length > 0) {
       setFields.recordingUrl = rawRecordingUrl;
     }
 
     if (normalizedCallId) {
+      const callId = extractCallIdFromPayload(raw);
+      const query = callId
+        ? { _id: callId }
+        : { providerCallId: normalizedCallId };
+
       await db.collection("calls").updateOne(
-        { providerCallId: normalizedCallId },
+        query,
         {
           $set: setFields,
           $setOnInsert: {
-            providerCallId: normalizedCallId, tenantId: did?.tenantId ?? "pending",
+            _id: callId || new ObjectId().toString(),
+            tenantId: did?.tenantId ?? "pending",
             agentId: did?.defaultAgentId ?? "pending", createdAt: now,
             sentiment: "unknown", costCredits: 0, costCogs: 0,
           },
@@ -189,11 +198,23 @@ webhooksRouter.post("/voicelink", async (req, res) => {
     campaignId: customParams.campaignId,
   });
   if (normalizedCallId) {
+    const callId = customParams.callId;
+    const query = callId
+      ? { _id: callId }
+      : { providerCallId: normalizedCallId };
+
+    callDoc.set.providerCallId = normalizedCallId;
+
+    const { providerCallId: _, ...restSetOnInsert } = callDoc.setOnInsert;
+
     await db.collection("calls").updateOne(
-      { providerCallId: normalizedCallId },
+      query,
       {
         $set: callDoc.set,
-        $setOnInsert: callDoc.setOnInsert,
+        $setOnInsert: {
+          ...restSetOnInsert,
+          _id: callId || callDoc.setOnInsert._id,
+        },
       },
       { upsert: true },
     );
@@ -288,8 +309,10 @@ interface CallDocPatch {
     startedAt?: Date;
     endedAt?: Date;
     updatedAt: Date;
+    providerCallId?: string;
   };
   setOnInsert: {
+    _id: string;
     providerCallId: string;
     tenantId: string;
     agentId: string;
@@ -342,6 +365,7 @@ function buildCallDoc(
   }
 
   const setOnInsert: CallDocPatch["setOnInsert"] = {
+    _id: new ObjectId().toString(),
     providerCallId: denormalizeProviderCallId(event.unique_id),
     tenantId: ctx.tenantId,
     agentId: ctx.agentId,
@@ -374,12 +398,13 @@ function parseCallDate(s: string): Date | undefined {
 function parseCustomParameters(value: unknown): {
   agentId?: string;
   campaignId?: string;
+  callId?: string;
 } {
   if (typeof value !== "string" || value.length === 0) return {};
   try {
     const parsed = JSON.parse(value);
     if (typeof parsed !== "object" || parsed === null) return {};
-    const out: { agentId?: string; campaignId?: string } = {};
+    const out: { agentId?: string; campaignId?: string; callId?: string } = {};
     const obj = parsed as Record<string, unknown>;
     if (typeof obj.agentId === "string" && obj.agentId.length > 0) {
       out.agentId = obj.agentId;
@@ -387,8 +412,46 @@ function parseCustomParameters(value: unknown): {
     if (typeof obj.campaignId === "string" && obj.campaignId.length > 0) {
       out.campaignId = obj.campaignId;
     }
+    if (typeof obj.callId === "string" && obj.callId.length > 0) {
+      out.callId = obj.callId;
+    }
     return out;
   } catch {
+    // If not valid JSON, check for a query parameter format
+    const match = /callId=([a-zA-Z0-9_-]+)/.exec(String(value));
+    if (match) return { callId: match[1] };
     return {};
   }
+}
+
+function extractCallIdFromPayload(evt: any): string | null {
+  if (!evt) return null;
+  // Try to find customParameters in call object (v2) or top-level (v1)
+  const customParams = evt.call?.customParameters ?? evt.call?.custom_parameters ?? evt.custom_parameters ?? evt.customParameters;
+  if (!customParams) return null;
+
+  let params = customParams;
+  if (typeof params === "string") {
+    try {
+      params = JSON.parse(params);
+    } catch {
+      const match = /callId=([a-zA-Z0-9_-]+)/.exec(params);
+      if (match) return match[1];
+      return null;
+    }
+  }
+
+  if (params && typeof params === "object") {
+    if (typeof params.callId === "string" && params.callId.length > 0) {
+      return params.callId;
+    }
+    // Also try overrideWsUrl or websocketUrl
+    const urlField = params.overrideWsUrl ?? params.websocketUrl ?? params.websocket_url;
+    if (typeof urlField === "string") {
+      const match = /callId=([a-zA-Z0-9_-]+)/.exec(urlField);
+      if (match) return match[1];
+    }
+  }
+
+  return null;
 }

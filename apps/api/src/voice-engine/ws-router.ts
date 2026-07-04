@@ -191,7 +191,7 @@ function startSession(args: {
           { callId, existingCallId: existingCall._id, providerCallId: cleanId },
           "Reconciled WebSocket session with existing outbound call record",
         );
-        session.updateCallId(existingCall._id);
+        session.updateCallId(existingCall._id.toString());
         await db.collection<Call>("calls").updateOne(
           { _id: existingCall._id },
           { $set: { status: "inprogress", updatedAt: new Date() } }
@@ -242,6 +242,7 @@ function startSession(args: {
     provider,
     systemPrompt: agent.prompt,
     greeting: agent.greeting,
+    endCallTriggers: agent.endCallTriggers,
     waitForStartFrame,
     onStartFrame,
     audioFormat,

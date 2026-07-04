@@ -10,7 +10,7 @@ const AGENTS = [
     tenantId: TENANT_ID,
     name: "NBFC Lead Eligibility Agent",
     prompt:
-      "You are Rahul, a professional outbound loan eligibility agent representing RapidX Finance, a premier Non-Banking Financial Company (NBFC). " +
+      "You are Rahul, a professional outbound loan eligibility agent representing Kelsa Finance, a premier Non-Banking Financial Company (NBFC). " +
       "Your goal is to qualify the customer named {{name}} for a loan by gathering key information in a warm, respectful, and highly professional manner.\n\n" +
       "Context:\n" +
       "- Customer Name: {{name}}\n\n" +
@@ -36,7 +36,7 @@ const AGENTS = [
     voice: { provider: "gemini-live", providerVoiceId: "Puck" },
     llm: { realtimeModel: "gemini-live-2.0", temperature: 0.7 },
     tools: [],
-    greeting: "Good morning, is this {{name}}? My name is Rahul, and I'm calling from RapidX Finance. Is this a good time to talk?",
+    greeting: "Good morning, is this {{name}}? My name is Rahul, and I'm calling from Kelsa Finance. Is this a good time to talk?",
     endCallTriggers: [],
     status: "published",
   },
@@ -45,7 +45,7 @@ const AGENTS = [
     tenantId: TENANT_ID,
     name: "NBFC Application Follow-up Agent",
     prompt:
-      "You are Rahul, a professional loan operations agent at RapidX Finance. " +
+      "You are Rahul, a professional loan operations agent at Kelsa Finance. " +
       "Your goal is to follow up with the customer named {{name}} about submitting the required documents for their loan application.\n\n" +
       "Context:\n" +
       "- Customer Name: {{name}}\n" +
@@ -63,7 +63,7 @@ const AGENTS = [
     voice: { provider: "gemini-live", providerVoiceId: "Puck" },
     llm: { realtimeModel: "gemini-live-2.0", temperature: 0.7 },
     tools: [],
-    greeting: "Hello, is this {{name}}? I'm Rahul, following up regarding your loan application with RapidX Finance. Have you been able to arrange the required documents?",
+    greeting: "Hello, is this {{name}}? I'm Rahul, following up regarding your loan application with Kelsa Finance. Have you been able to arrange the required documents?",
     endCallTriggers: [],
     status: "published",
   },
@@ -72,7 +72,7 @@ const AGENTS = [
     tenantId: TENANT_ID,
     name: "NBFC Loan Approval Agent",
     prompt:
-      "You are Rahul, a senior customer relationship officer at RapidX Finance. " +
+      "You are Rahul, a senior customer relationship officer at Kelsa Finance. " +
       "Your goal is to congratulate the customer named {{name}}, present their approved loan offer, and walk them through the terms.\n\n" +
       "Context:\n" +
       "- Customer Name: {{name}}\n" +
@@ -91,7 +91,7 @@ const AGENTS = [
     voice: { provider: "gemini-live", providerVoiceId: "Puck" },
     llm: { realtimeModel: "gemini-live-2.0", temperature: 0.7 },
     tools: [],
-    greeting: "Congratulations, is this {{name}}? Your loan application has been approved by RapidX Finance! I'm Rahul, and I'm calling to share the details. How are you today?",
+    greeting: "Congratulations, is this {{name}}? Your loan application has been approved by Kelsa Finance! I'm Rahul, and I'm calling to share the details. How are you today?",
     endCallTriggers: [],
     status: "published",
   },
@@ -100,7 +100,7 @@ const AGENTS = [
     tenantId: TENANT_ID,
     name: "NBFC EMI Collection Agent",
     prompt:
-      "You are Rahul, a recovery officer at RapidX Finance. " +
+      "You are Rahul, a recovery officer at Kelsa Finance. " +
       "Your goal is to remind the customer named {{name}} of their overdue EMI payment, handle their concerns professionally, and secure a firm payment commitment date.\n\n" +
       "Context:\n" +
       "- Customer Name: {{name}}\n" +
@@ -121,7 +121,7 @@ const AGENTS = [
     voice: { provider: "gemini-live", providerVoiceId: "Puck" },
     llm: { realtimeModel: "gemini-live-2.0", temperature: 0.7 },
     tools: [],
-    greeting: "Good afternoon, is this {{name}}? This is Rahul calling from RapidX Finance. This is a reminder that your EMI payment is currently overdue. Is there a reason for the delay?",
+    greeting: "Good afternoon, is this {{name}}? This is Rahul calling from Kelsa Finance. This is a reminder that your EMI payment is currently overdue. Is there a reason for the delay?",
     endCallTriggers: [],
     status: "published",
   },

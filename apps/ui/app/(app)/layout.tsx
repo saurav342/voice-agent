@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/session";
 import { api, ApiError } from "@/lib/api";
@@ -32,12 +33,17 @@ async function fetchActingTenant(): Promise<Tenant | null> {
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
-  const balance = user.isSuperadmin ? null : await fetchBalance();
   const actingTenant = user.isSuperadmin ? await fetchActingTenant() : null;
+
+  if (user.isSuperadmin && !actingTenant) {
+    redirect("/admin/tenants");
+  }
+
+  const balance = await fetchBalance();
 
   return (
     <div className="min-h-screen flex bg-background">
-      <Sidebar isSuperadmin={user.isSuperadmin} balance={balance} />
+      <Sidebar isSuperadmin={user.isSuperadmin} isActingTenant={!!actingTenant} balance={balance} />
 
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Top header bar */}

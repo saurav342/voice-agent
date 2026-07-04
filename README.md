@@ -1,4 +1,4 @@
-# VoiceLink — RapidX AI Voice Agent
+# VoiceLink — Kelsa AI Voice Agent
 
 AI phone agent for **inbound and outbound calls**, built on **VoiceLink** telephony
 (Indian DIDs) + **Gemini Live**. Node API + Next.js dashboard. Talk to a real AI
@@ -74,7 +74,7 @@ Login at http://localhost:3000 with the seeded owner account (printed by the see
 
 1. Sign in, you land on **Dashboard**.
 2. In the **Place a call** card, enter a phone number (India: 10 digits, e.g. `9307512816`).
-3. Click **Call me**. Your phone rings and the RapidX AI agent talks to you.
+3. Click **Call me**. Your phone rings and the Kelsa AI agent talks to you.
 
 ## Inbound
 

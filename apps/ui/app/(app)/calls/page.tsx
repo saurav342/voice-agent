@@ -5,21 +5,13 @@ import { CallsTable } from "./calls-table";
 
 async function fetchCalls(): Promise<Call[]> {
   try {
-    const { calls } = await api.get<{ calls: Call[] }>("/calls?limit=100");
+    const { calls } = await api.get<{ calls: Call[] }>("/calls?limit=2000");
     return calls;
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return [];
     throw err;
   }
 }
-
-const STATUS_CONFIG: Record<Call["status"], { label: string; cls: string }> = {
-  queued:     { label: "Queued",      cls: "badge-muted" },
-  ringing:    { label: "Ringing",     cls: "badge-blue" },
-  inprogress: { label: "In Progress", cls: "badge-green" },
-  completed:  { label: "Completed",   cls: "badge-muted" },
-  failed:     { label: "Failed",      cls: "badge-red" },
-};
 
 export default async function CallsPage() {
   const calls = await fetchCalls();
@@ -30,7 +22,7 @@ export default async function CallsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Calls</h1>
           <p className="mt-1 text-sm text-[var(--c-text-secondary)]">
-            {calls.length > 0 ? `Last ${calls.length} calls` : "No calls recorded yet"}
+            {calls.length > 0 ? `${calls.length} calls loaded · Use filters to narrow down` : "No calls recorded yet"}
           </p>
         </div>
 

@@ -1,5 +1,5 @@
 /**
- * Seed RapidX AI tenant + Gemini agent + the two VoiceLink DIDs + login
+ * Seed Kelsa AI tenant + Gemini agent + the two VoiceLink DIDs + login
  * users. Idempotent: upserts by stable ids. Run:
  *   npx tsx scripts/seed.ts
  */
@@ -13,7 +13,7 @@ const VOICELINK_CLIENT_ID = 1507; // Saurav Kumar
 const TENANT_ID = "rapidx-tenant";
 const AGENT_ID = "rapidx-receptionist";
 const DIDS = [
-  { number: "919484959291", botId: "219" },
+  { number: "919484959291", botId: "244" },
 ];
 
 const SUPERADMIN = { email: "admin@rapidxai.com", password: "RapidXadmin2026" };
@@ -30,7 +30,7 @@ async function main() {
     { _id: TENANT_ID as any },
     {
       $set: {
-        name: "RapidX AI",
+        name: "Kelsa AI",
         plan: "scale",
         status: "active",
         telephony: { provider: "voicelink", providerClientId: VOICELINK_CLIENT_ID, walletThresholdNotify: 0 },
@@ -47,18 +47,18 @@ async function main() {
     {
       $set: {
         tenantId: TENANT_ID,
-        name: "RapidX AI Receptionist",
+        name: "Kelsa AI Receptionist",
         prompt:
-          "You are the AI phone receptionist for RapidX AI, an AI automation agency that builds voice agents, " +
+          "You are the AI phone receptionist for Kelsa AI, an AI automation agency that builds voice agents, " +
           "workflow automations, and custom AI systems for businesses. Be warm, concise, and professional. " +
-          "Answer questions about RapidX AI's services, understand what the caller needs, and offer to book a " +
+          "Answer questions about Kelsa AI's services, understand what the caller needs, and offer to book a " +
           "discovery call or take a message with their name and number. Keep replies to one or two short " +
           "sentences. Speak naturally for a phone call. Never use the dash character in your speech.",
         voice: { provider: "gemini-live", providerVoiceId: "Puck" },
         llm: { realtimeModel: "gemini-live-2.0", temperature: 0.7 },
         tools: [],
         greeting:
-          "Open the call now: warmly greet the caller, say you are the RapidX AI assistant, and ask how you can help today. Keep it to one short sentence.",
+          "Open the call now: warmly greet the caller, say you are the Kelsa AI assistant, and ask how you can help today. Keep it to one short sentence.",
         endCallTriggers: [],
         status: "published",
         updatedAt: now,

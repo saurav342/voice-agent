@@ -1,3 +1,4 @@
+import "dotenv/config";
 /**
  * Standalone proof that GeminiLiveProvider connects to Gemini Live and
  * speaks audio back — no telephony, no Mongo, no server. Run:
@@ -17,7 +18,7 @@ const provider = new GeminiLiveProvider({
   model: "gemini-live-2.0",
   voice: process.env.GEMINI_VOICE || "Puck",
   systemPrompt:
-    "You are RapidX AI's friendly phone receptionist. Keep every reply to one short sentence.",
+    "You are Kelsa AI's friendly phone receptionist. Keep every reply to one short sentence.",
 });
 
 let audioBytes = 0;
@@ -38,7 +39,7 @@ provider.onError((e) => {
 await provider.connect();
 console.log("connected to Gemini Live; sending opening prompt...");
 provider.sendText(
-  "Greet the caller: say you are the RapidX AI assistant and ask how you can help. One sentence.",
+  "Greet the caller: say you are the Kelsa AI assistant and ask how you can help. One sentence.",
 );
 
 await new Promise((r) => setTimeout(r, 8000));

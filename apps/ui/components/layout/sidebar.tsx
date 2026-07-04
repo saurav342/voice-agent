@@ -101,6 +101,7 @@ const ADMIN_NAV: NavItem[] = [
 
 interface Props {
   isSuperadmin: boolean;
+  isActingTenant?: boolean;
   balance?: number | null;
   className?: string;
 }
@@ -131,7 +132,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-export function Sidebar({ isSuperadmin, balance, className }: Props) {
+export function Sidebar({ isSuperadmin, isActingTenant, balance, className }: Props) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -177,7 +178,7 @@ export function Sidebar({ isSuperadmin, balance, className }: Props) {
 
       {/* Main nav */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {NAV.map((item) => (
+        {(!isSuperadmin || isActingTenant) && NAV.map((item) => (
           <NavLink key={item.href} item={item} active={isActive(item.href)} />
         ))}
 

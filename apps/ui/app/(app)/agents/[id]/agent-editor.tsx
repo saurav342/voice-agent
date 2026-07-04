@@ -60,14 +60,14 @@ interface AgentTemplate {
 const NBFC_TEMPLATES: AgentTemplate[] = [
   {
     name: "NBFC Lead Eligibility Agent",
-    description: "Rahul from RapidX Finance qualifying prospective customers for business, personal, or vehicle loans.",
+    description: "Rahul from Kelsa Finance qualifying prospective customers for business, personal, or vehicle loans.",
     gradient: "from-blue-600 to-indigo-600",
-    greeting: "Good morning, is this {{name}}? My name is Rahul, and I'm calling from RapidX Finance. Is this a good time to talk?",
+    greeting: "Good morning, is this {{name}}? My name is Rahul, and I'm calling from Kelsa Finance. Is this a good time to talk?",
     provider: "gemini-live",
     voiceId: "Puck",
     model: "gemini-live-2.0",
     prompt:
-      "You are Rahul, a professional outbound loan eligibility agent representing RapidX Finance, a premier Non-Banking Financial Company (NBFC). " +
+      "You are Rahul, a professional outbound loan eligibility agent representing Kelsa Finance, a premier Non-Banking Financial Company (NBFC). " +
       "Your goal is to qualify the customer named {{name}} for a loan by gathering key information in a warm, respectful, and highly professional manner.\n\n" +
       "Context:\n" +
       "- Customer Name: {{name}}\n\n" +
@@ -95,12 +95,12 @@ const NBFC_TEMPLATES: AgentTemplate[] = [
     name: "NBFC Document Follow-up Agent",
     description: "Rahul calling to request pending documentation (Aadhaar, PAN, Bank statements) for loan processing.",
     gradient: "from-emerald-500 to-teal-600",
-    greeting: "Hello, is this {{name}}? I'm Rahul, following up regarding your loan application with RapidX Finance. Have you been able to arrange the required documents?",
+    greeting: "Hello, is this {{name}}? I'm Rahul, following up regarding your loan application with Kelsa Finance. Have you been able to arrange the required documents?",
     provider: "gemini-live",
     voiceId: "Puck",
     model: "gemini-live-2.0",
     prompt:
-      "You are Rahul, a professional loan operations agent at RapidX Finance. " +
+      "You are Rahul, a professional loan operations agent at Kelsa Finance. " +
       "Your goal is to follow up with the customer named {{name}} about submitting the required documents for their loan application.\n\n" +
       "Context:\n" +
       "- Customer Name: {{name}}\n" +
@@ -120,12 +120,12 @@ const NBFC_TEMPLATES: AgentTemplate[] = [
     name: "NBFC Loan Approval Agent",
     description: "Rahul confirming loan approval of ₹450,000, explaining interest rate, EMIs, and agreement details.",
     gradient: "from-purple-600 to-indigo-600",
-    greeting: "Congratulations, is this {{name}}? Your loan application has been approved by RapidX Finance! I'm Rahul, and I'm calling to share the details. How are you today?",
+    greeting: "Congratulations, is this {{name}}? Your loan application has been approved by Kelsa Finance! I'm Rahul, and I'm calling to share the details. How are you today?",
     provider: "gemini-live",
     voiceId: "Puck",
     model: "gemini-live-2.0",
     prompt:
-      "You are Rahul, a senior customer relationship officer at RapidX Finance. " +
+      "You are Rahul, a senior customer relationship officer at Kelsa Finance. " +
       "Your goal is to congratulate the customer named {{name}}, present their approved loan offer, and walk them through the terms.\n\n" +
       "Context:\n" +
       "- Customer Name: {{name}}\n" +
@@ -146,12 +146,12 @@ const NBFC_TEMPLATES: AgentTemplate[] = [
     name: "NBFC EMI Collection Agent",
     description: "Rahul recovery agent reminding the customer about overdue payments and securing commitment details.",
     gradient: "from-rose-500 to-pink-600",
-    greeting: "Good afternoon, is this {{name}}? This is Rahul calling from RapidX Finance. This is a reminder that your EMI payment is currently overdue. Is there a reason for the delay?",
+    greeting: "Good afternoon, is this {{name}}? This is Rahul calling from Kelsa Finance. This is a reminder that your EMI payment is currently overdue. Is there a reason for the delay?",
     provider: "gemini-live",
     voiceId: "Puck",
     model: "gemini-live-2.0",
     prompt:
-      "You are Rahul, a recovery officer at RapidX Finance. " +
+      "You are Rahul, a recovery officer at Kelsa Finance. " +
       "Your goal is to remind the customer named {{name}} of their overdue EMI payment, handle their concerns professionally, and secure a firm payment commitment date.\n\n" +
       "Context:\n" +
       "- Customer Name: {{name}}\n" +
@@ -209,7 +209,7 @@ export function AgentEditor({ agent }: Props) {
       .then((j: { voices: LibraryVoice[] }) => {
         if (!cancelled) setVoices(j.voices ?? []);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
@@ -340,11 +340,10 @@ export function AgentEditor({ agent }: Props) {
                   applyTemplate(tpl);
                   setSelectedTemplate(tpl.name);
                 }}
-                className={`flex flex-col text-left p-4 rounded-2xl transition-all border ${
-                  selectedTemplate === tpl.name
+                className={`flex flex-col text-left p-4 rounded-2xl transition-all border ${selectedTemplate === tpl.name
                     ? "border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/20 shadow-md ring-2 ring-indigo-500/20"
                     : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-950 hover:bg-zinc-50/30 hover:shadow-sm"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3.5 mb-2 w-full">
                   <div className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${tpl.gradient} text-white flex items-center justify-center shrink-0`}>
