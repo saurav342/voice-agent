@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Agent } from "@voiceplatform/shared";
 
 type Status = { kind: "idle" | "calling" | "ok" | "err"; msg?: string };
 
 export function PlaceCall() {
   const [number, setNumber] = useState("0");
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+
+  useEffect(() => {
+    fetch("/api/agents")
+      .then((res) => (res.ok ? res.json() : { agents: [] }))
+      .then((data) => {
+        const list: Agent[] = data.agents ?? [];
+        setAgents(list);
+        if (list.length > 0) {
+          setSelectedAgentId(list[0]._id);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function call() {
     setStatus({ kind: "calling" });
@@ -14,7 +30,10 @@ export function PlaceCall() {
       const res = await fetch("/api/calls/dial", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ toNumber: number.trim() }),
+        body: JSON.stringify({
+          toNumber: number.trim(),
+          agentId: selectedAgentId || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -71,7 +90,27 @@ export function PlaceCall() {
         Enter a 10-digit mobile number. For India, enter (e.g. 0 or 9307512816). The Vaani AI agent will call immediately.
       </p>
 
-      <div className="flex flex-col sm:flex-row gap-3 max-w-xl">
+      <div className="flex flex-col sm:flex-row gap-3 max-w-2xl">
+        {agents.length > 0 && (
+          <div className="w-full sm:w-56 relative shrink-0">
+            <select
+              value={selectedAgentId}
+              onChange={(e) => setSelectedAgentId(e.target.value)}
+              className="w-full h-12 px-3 rounded-xl text-xs font-semibold border text-foreground focus:outline-none focus:ring-2 transition-all shadow-inner"
+              style={{
+                background: "var(--c-input-bg)",
+                borderColor: "var(--c-border)",
+              }}
+            >
+              {agents.map((a) => (
+                <option key={a._id} value={a._id}>
+                  🤖 {a.name} ({a.status})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="flex-1 relative">
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--brand)]">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

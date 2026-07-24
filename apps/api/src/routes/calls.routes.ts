@@ -30,6 +30,11 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
     return;
   }
 
+  const reqAgentId = (req.body as { agentId?: unknown })?.agentId;
+  const targetAgentId = typeof reqAgentId === "string" && reqAgentId.length > 0
+    ? reqAgentId
+    : (did.defaultAgentId || "pending");
+
   const dids = getDb().collection<Did>("dids");
   const did = typeof didId === "string" && didId.length > 0
     ? await dids.findOne(tenantScope(req, { _id: didId }))
@@ -63,7 +68,7 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
     const call: Call = {
       _id: callId,
       tenantId: req.tenantId!,
-      agentId: did.defaultAgentId || "pending",
+      agentId: targetAgentId,
       direction: "out",
       providerCallId: handle.providerCallId,
       fromNumber: did.providerNumber,

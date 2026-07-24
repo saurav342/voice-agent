@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import type { Agent, RealtimeModel, VoiceProvider } from "@voiceplatform/shared";
+import type { Agent, AgentStatus, RealtimeModel, VoiceProvider } from "@voiceplatform/shared";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -295,15 +295,59 @@ export function AgentEditor({ agent }: Props) {
           <h1 className="text-2xl font-semibold">
             {isNew ? "New agent" : draft.name || "(unnamed agent)"}
           </h1>
-          <p className="text-sm text-zinc-500">
-            Status: <span className="font-medium">{draft.status}</span>
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-zinc-500 font-medium">Status:</span>
+            <Select
+              value={draft.status}
+              onValueChange={(val) => setDraft({ ...draft, status: val as AgentStatus })}
+            >
+              <SelectTrigger className="h-7 text-xs w-32 font-semibold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">🟡 Draft</SelectItem>
+                <SelectItem value="published">🟢 Published</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {savedAt && !error && (
             <span className="text-xs text-zinc-500">
               Saved {savedAt.toLocaleTimeString()}
             </span>
+          )}
+          {!isNew && draft.status === "draft" && (
+            <Button
+              variant="outline"
+              className="bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 font-semibold"
+              onClick={async () => {
+                setDraft({ ...draft, status: "published" });
+                setSaving(true);
+                setError(null);
+                try {
+                  const res = await fetch(`/api/agents/${draft._id}`, {
+                    method: "PUT",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ ...buildPayload(), status: "published" }),
+                  });
+                  const body = await res.json().catch(() => ({}));
+                  if (!res.ok) {
+                    setError(body.error ?? `Publish failed (${res.status})`);
+                    return;
+                  }
+                  setDraft(body as Agent);
+                  setSavedAt(new Date());
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Publish failed");
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              disabled={saving || deleting}
+            >
+              🚀 Publish Agent
+            </Button>
           )}
           {!isNew && (
             <Button

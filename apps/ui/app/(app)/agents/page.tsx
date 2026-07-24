@@ -15,9 +15,10 @@ async function fetchAgents(): Promise<Agent[]> {
 }
 
 const STATUS_CONFIG = {
-  active:   { label: "Active",   cls: "badge-emerald" },
-  inactive: { label: "Inactive", cls: "badge-muted" },
-  draft:    { label: "Draft",    cls: "badge-amber" },
+  active:    { label: "Active",    cls: "badge-emerald" },
+  published: { label: "Published", cls: "badge-emerald" },
+  inactive:  { label: "Inactive",  cls: "badge-muted" },
+  draft:     { label: "Draft",     cls: "badge-amber" },
 } as const;
 
 function getInitials(name: string): string {
@@ -118,7 +119,7 @@ export default async function AgentsPage() {
                     {getInitials(agent.name)}
                   </div>
                   <span className={`badge ${statusCfg.cls}`}>
-                    {statusCfg.label === "Active" && (
+                    {(statusCfg.label === "Active" || statusCfg.label === "Published") && (
                       <span className="w-1.5 h-1.5 rounded-full bg-current inline-block animate-pulse" />
                     )}
                     {statusCfg.label}
