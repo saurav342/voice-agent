@@ -21,7 +21,7 @@ export function PlaceCall() {
           setSelectedAgentId(list[0]._id);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   async function call() {
@@ -104,7 +104,7 @@ export function PlaceCall() {
             >
               {agents.map((a) => (
                 <option key={a._id} value={a._id}>
-                  🤖 {a.name} ({a.status})
+                  🤖 {a.name}
                 </option>
               ))}
             </select>
