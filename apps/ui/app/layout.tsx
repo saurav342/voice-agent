@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Malama AI — Voice Agent Platform",
-  description: "Malama AI — AI voice agents for inbound and outbound calls",
+  title: "Vaani AI — Voice Agent Platform",
+  description: "Vaani AI — AI voice agents for inbound and outbound calls",
 };
 
 export default function RootLayout({

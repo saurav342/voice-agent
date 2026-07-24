@@ -170,7 +170,7 @@ export function Sidebar({ isSuperadmin, isActingTenant, balance, className }: Pr
             </svg>
           </div>
           <div>
-            {/* <div className="text-sm font-bold gradient-text leading-none">Malama AI</div> */}
+            {/* <div className="text-sm font-bold gradient-text leading-none">Vaani AI</div> */}
             <div className="text-[10px] text-[var(--c-text-dim)] mt-0.5 font-semibold tracking-wide uppercase">Voice Platform</div>
           </div>
         </Link>

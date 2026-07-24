@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 import { getCurrentUser } from "@/lib/session";
 
@@ -9,101 +10,126 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
   if (user) redirect("/");
 
   return (
-    <div className="min-h-screen flex">
-      {/* ── Left panel: animated brand hero ── */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden mesh-gradient items-center justify-center p-12">
-        {/* Animated orbs */}
+    <div className="min-h-screen flex selection:bg-[oklch(0.52_0.18_158_/_0.20)]">
+      {/* ── Left panel: 2026 Animated Vaani Hero ── */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden mesh-gradient items-center justify-center p-12 border-r border-[var(--c-border)]">
+        {/* Ambient floating glowing light orbs */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none overflow-hidden"
           aria-hidden="true"
         >
           <div
-            className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-20 blur-3xl animate-float"
-            style={{ background: "oklch(0.65 0.28 275)", animationDelay: "0s" }}
+            className="absolute -top-12 left-1/4 w-[28rem] h-[28rem] rounded-full opacity-30 blur-3xl animate-float"
+            style={{ background: "oklch(0.52 0.18 158)", animationDelay: "0s" }}
           />
           <div
-            className="absolute bottom-1/4 right-1/4 w-72 h-72 rounded-full opacity-15 blur-3xl animate-float"
-            style={{ background: "oklch(0.72 0.22 220)", animationDelay: "1.5s" }}
+            className="absolute bottom-10 right-10 w-96 h-96 rounded-full opacity-25 blur-3xl animate-float"
+            style={{ background: "oklch(0.68 0.12 155)", animationDelay: "2s" }}
           />
           <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full opacity-10 blur-2xl animate-float"
-            style={{ background: "oklch(0.72 0.19 158)", animationDelay: "3s" }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full opacity-20 blur-3xl animate-float"
+            style={{ background: "oklch(0.75 0.18 158)", animationDelay: "4s" }}
           />
         </div>
 
-        {/* Dot grid overlay */}
-        <div className="absolute inset-0 dot-grid opacity-40" aria-hidden="true" />
+        {/* Dot grid matrix overlay */}
+        <div className="absolute inset-0 dot-grid opacity-50" aria-hidden="true" />
 
-        {/* Hero content */}
-        <div className="relative z-10 max-w-md text-center animate-fade-up">
-          {/* Logo mark */}
-          <div className="mx-auto mb-8 w-20 h-20 rounded-2xl icon-gradient-violet flex items-center justify-center shadow-2xl"
-               style={{ boxShadow: "0 0 40px oklch(0.65 0.28 275 / 0.4)" }}>
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-              <path
-                d="M8 20C8 20 12 10 20 10C28 10 32 20 32 20C32 20 28 30 20 30C12 30 8 20 8 20Z"
-                stroke="white"
-                strokeWidth="2"
-                fill="none"
-                strokeLinecap="round"
-              />
-              <circle cx="14" cy="20" r="2" fill="white" opacity="0.6" />
-              <circle cx="20" cy="16" r="2.5" fill="white" />
-              <circle cx="26" cy="20" r="2" fill="white" opacity="0.6" />
-              <circle cx="20" cy="24" r="1.5" fill="white" opacity="0.4" />
-              {/* Soundwave lines */}
-              <path d="M6 17 L6 23" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
-              <path d="M34 17 L34 23" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
-              <path d="M3 19 L3 21" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.3"/>
-              <path d="M37 19 L37 21" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.3"/>
-            </svg>
+        {/* Hero content card */}
+        <div className="relative z-10 max-w-lg text-center animate-fade-up flex flex-col items-center">
+          {/* Status Capsule */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[oklch(0.42_0.14_158_/_0.08)] dark:bg-[oklch(0.72_0.18_158_/_0.15)] border border-[oklch(0.42_0.14_158_/_0.20)] text-xs font-semibold text-[oklch(0.32_0.14_158)] dark:text-[oklch(0.85_0.14_158)] mb-8 shadow-sm backdrop-blur-md">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[oklch(0.52_0.18_158)] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[oklch(0.42_0.14_158)] dark:bg-[oklch(0.72_0.18_158)]"></span>
+            </span>
+            <span>AI Voice Engine 2.0 • Active</span>
           </div>
 
-          <h1 className="text-4xl font-bold mb-4 tracking-tight">
-            <span className="gradient-text">Malama AI</span>
-          </h1>
-          <p className="text-lg text-[oklch(0.75_0.01_265)] leading-relaxed mb-8">
+          {/* Vaani Logo Container with 2026 Glow */}
+          <div className="relative group mb-8">
+            <div className="absolute -inset-2 bg-gradient-to-r from-[oklch(0.42_0.14_158)] via-[oklch(0.68_0.12_155)] to-[oklch(0.75_0.18_158)] rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition duration-500"></div>
+            <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl p-6 border border-white/60 dark:border-slate-800/60 shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]">
+              <Image
+                src="/vaani_logo.png"
+                alt="Vaani Logo"
+                width={240}
+                height={240}
+                className="h-auto w-48 object-contain"
+                priority
+              />
+            </div>
+          </div>
+
+          {/* Interactive Soundwave Equalizer Visualizer */}
+          <div className="flex items-center gap-1.5 h-10 mb-8 px-4 py-2 rounded-full bg-white/50 dark:bg-black/40 backdrop-blur-md border border-[var(--c-border)] shadow-inner">
+            {[40, 75, 30, 90, 50, 100, 60, 85, 35, 70, 45, 80, 25, 65, 95, 40].map((h, i) => (
+              <span
+                key={i}
+                className="w-1 bg-gradient-to-t from-[oklch(0.42_0.14_158)] to-[oklch(0.75_0.18_158)] rounded-full transition-all duration-300"
+                style={{
+                  height: `${h}%`,
+                  animation: `soundwave 1.4s ease-in-out infinite alternate`,
+                  animationDelay: `${(i % 5) * 0.2}s`,
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Hero text */}
+          <p className="text-base sm:text-lg text-[var(--c-text-secondary)] leading-relaxed mb-8 max-w-md">
             Intelligent voice agents that handle your inbound and outbound calls with human-like precision.
           </p>
 
           {/* Feature pills */}
-          <div className="flex flex-wrap gap-2 justify-center">
-            {["AI Voice Agents", "Outbound Campaigns", "Real-time Analytics", "Multi-tenant"].map((f) => (
+          <div className="flex flex-wrap gap-2.5 justify-center">
+            {[
+              { label: "AI Voice Agents", icon: "🎙️" },
+              { label: "Outbound Campaigns", icon: "⚡" },
+              { label: "Real-time Analytics", icon: "📊" },
+              { label: "Multi-tenant", icon: "🏢" }
+            ].map((f) => (
               <span
-                key={f}
-                className="badge badge-purple text-xs"
+                key={f.label}
+                className="badge badge-emerald text-xs shadow-xs hover:scale-105 transition-transform"
               >
-                {f}
+                <span className="mr-1">{f.icon}</span>
+                {f.label}
               </span>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── Right panel: form ── */}
-      <div
-        className="flex-1 flex flex-col items-center justify-center px-4 py-12"
-        style={{ background: "var(--surface-0)" }}
-      >
+      {/* ── Right panel: Auth form container ── */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-background relative overflow-y-auto">
+        {/* Subtle right-panel background glow */}
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-[oklch(0.52_0.18_158_/_0.04)] blur-3xl pointer-events-none" aria-hidden="true" />
+        
         {/* Mobile logo */}
         <Link
           href="/"
-          className="mb-10 flex items-center gap-3 lg:hidden"
+          className="mb-8 flex items-center gap-3 lg:hidden group"
         >
-          <div className="w-9 h-9 rounded-xl icon-gradient-violet flex items-center justify-center">
-            <svg width="18" height="18" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-              <path d="M8 20C8 20 12 10 20 10C28 10 32 20 32 20C32 20 28 30 20 30C12 30 8 20 8 20Z"
-                stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-              <circle cx="20" cy="20" r="3" fill="white"/>
-            </svg>
+          <div className="relative rounded-xl overflow-hidden p-1.5 bg-white dark:bg-slate-900 border border-[var(--c-border)] shadow-md">
+            <Image
+              src="/vaani_logo.png"
+              alt="Vaani Logo"
+              width={36}
+              height={36}
+              className="h-7 w-auto object-contain"
+            />
           </div>
-          <span className="text-xl font-bold gradient-text">Malama AI</span>
+          <span className="text-xl font-bold tracking-tight text-foreground">
+            Vaani<span className="text-[oklch(0.42_0.14_158)] dark:text-[oklch(0.72_0.18_158)]">labs</span>
+          </span>
         </Link>
 
-        <div className="w-full max-w-sm animate-fade-up">
+        <div className="w-full max-w-sm animate-fade-up relative z-10">
           {children}
         </div>
       </div>
     </div>
   );
 }
+
