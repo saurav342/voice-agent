@@ -16,8 +16,8 @@ const DIDS = [
   { number: "919484959291", botId: "244" },
 ];
 
-const SUPERADMIN = { email: "admin@vaaniai.com", password: "VaaniXadmin2026" };
-const OWNER = { email: "swati@vaaniai.com", password: "VaaniX2026" };
+const SUPERADMIN = { email: "demo@vaanilabs.co", password: "aicall2026" };
+const OWNER = { email: "admin@vaanilabs.co", password: "aicall2026" };
 
 async function main() {
   const client = new MongoClient(MONGO_URL);

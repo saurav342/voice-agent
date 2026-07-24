@@ -66,8 +66,8 @@ pnpm --filter @voiceplatform/ui dev    # :3000  (PORT=3000)
 # seed Kelsa tenant + Gemini agent + DIDs + login users
 pnpm --filter @voiceplatform/api exec tsx scripts/seed.ts
 ```
-Login (seeded): owner `swati@vaaniai.com` / `VaaniX2026`; superadmin
-`admin@vaaniai.com` / `VaaniXadmin2026`.
+Login (seeded): owner `demo@vaanilabs.co` / `aicall2026`; superadmin
+`admin@vaanilabs.co` / `aicall2026`.
 
 ## Required env (`apps/api/.env`, gitignored)
 `MONGO_URL`, `REDIS_URL`, `JWT_SECRET`, `BYOK_ENCRYPTION_KEY`, `VOICELINK_MODE=live`,
