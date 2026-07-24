@@ -11,19 +11,19 @@ function InfoRow({
   mono?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3 border-b border-[var(--c-border)] last:border-0">
-      <dt className="text-sm text-[var(--c-text-secondary)]">{label}</dt>
+    <div className="flex items-center justify-between gap-4 py-3.5 border-b border-[var(--c-border)] last:border-0">
+      <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--c-text-dim)]">{label}</dt>
       <dd
-        className="text-sm font-medium"
+        className="text-xs font-semibold text-foreground"
         style={
           mono
             ? {
                 fontFamily: "var(--font-mono, monospace)",
-                fontSize: "0.75rem",
                 color: "var(--brand)",
-                background: "oklch(0.55 0.28 275 / 0.07)",
-                padding: "2px 8px",
-                borderRadius: "6px",
+                background: "oklch(0.42 0.14 158 / 0.08)",
+                padding: "3px 10px",
+                borderRadius: "8px",
+                border: "1px solid oklch(0.42 0.14 158 / 0.18)",
               }
             : {}
         }
@@ -44,37 +44,50 @@ export default async function SettingsPage() {
       : "U";
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-[var(--c-text-secondary)]">
-          Manage your account and session preferences
-        </p>
+    <div className="max-w-3xl space-y-8">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 glass-card p-6 rounded-3xl">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="badge badge-emerald text-[11px] font-bold">
+              Account Workspace
+            </span>
+            <span className="text-xs text-[var(--c-text-dim)] font-medium">
+              Profile & Security Settings
+            </span>
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground mt-1">
+            Settings & Security
+          </h1>
+          <p className="mt-1 text-sm text-[var(--c-text-secondary)]">
+            View user session details, role permissions, organization IDs, and manage active logins.
+          </p>
+        </div>
       </div>
 
-      {/* Profile card */}
-      <div className="glass-card rounded-2xl p-6 space-y-5">
-        <div className="flex items-center gap-4">
+      {/* Profile Card */}
+      <div className="glass-card rounded-3xl p-6 space-y-6 border border-[var(--c-border)] shadow-lg relative overflow-hidden">
+        <div className="flex items-center gap-5">
           <div
-            className="w-14 h-14 rounded-2xl icon-gradient-violet flex items-center justify-center text-white font-bold text-lg shrink-0"
-            style={{ boxShadow: "0 6px 20px oklch(0.55 0.28 275 / 0.25)" }}
+            className="w-16 h-16 rounded-2xl icon-gradient-violet flex items-center justify-center text-white font-extrabold text-xl shrink-0 shadow-lg"
+            style={{ boxShadow: "0 6px 20px oklch(0.42 0.14 158 / 0.30)" }}
           >
             {initials}
           </div>
-          <div>
-            <div className="font-semibold text-base text-foreground">
-              {user.isSuperadmin ? "Superadmin" : "Team Member"}
-            </div>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className={`badge ${user.isSuperadmin ? "badge-purple" : "badge-blue"}`}>
+          <div className="space-y-1">
+            <h2 className="font-extrabold text-xl text-foreground">
+              {user.isSuperadmin ? "Superadmin Account" : "Workspace Administrator"}
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className={`badge ${user.isSuperadmin ? "badge-purple" : "badge-emerald"}`}>
                 {user.role}
               </span>
               {user.isSuperadmin && (
                 <span className="badge badge-amber">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                   </svg>
-                  Superadmin
+                  Superadmin Scope
                 </span>
               )}
             </div>
@@ -84,27 +97,27 @@ export default async function SettingsPage() {
         <div className="h-px bg-[var(--c-border)]" />
 
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--c-text-dim)] mb-1">
-            Account Details
-          </h2>
-          <p className="text-xs text-[var(--c-text-dim)] mb-4">
-            Read-only for now — profile editing lands soon.
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-extrabold uppercase tracking-widest text-[var(--c-text-dim)]">
+              Account Attributes & Metadata
+            </h3>
+            <span className="text-[10px] text-[var(--c-text-dim)] font-medium">Read-Only</span>
+          </div>
           <dl className="space-y-0">
-            <InfoRow label="User ID"    value={user._id}              mono />
-            <InfoRow label="Tenant ID"  value={user.tenantId ?? "—"}  mono />
-            <InfoRow label="Role"       value={user.role} />
-            <InfoRow label="Superadmin" value={user.isSuperadmin ? "Yes" : "No"} />
+            <InfoRow label="User Account ID" value={user._id} mono />
+            <InfoRow label="Tenant Workspace ID" value={user.tenantId ?? "—"} mono />
+            <InfoRow label="Assigned Role" value={user.role} />
+            <InfoRow label="Superadmin Privileges" value={user.isSuperadmin ? "Enabled" : "Disabled"} />
           </dl>
         </div>
       </div>
 
-      {/* Session card */}
-      <div className="glass-card rounded-2xl p-6 space-y-4">
+      {/* Session Management Card */}
+      <div className="glass-card rounded-3xl p-6 space-y-4 border border-[var(--c-border)] shadow-lg">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Session</h2>
-          <p className="text-sm text-[var(--c-text-secondary)] mt-0.5">
-            Sign out of your current session on this device.
+          <h3 className="text-lg font-bold text-foreground">Session Control</h3>
+          <p className="text-xs text-[var(--c-text-secondary)] mt-0.5">
+            Sign out of your active dashboard session on this browser.
           </p>
         </div>
         <div className="h-px bg-[var(--c-border)]" />
@@ -113,3 +126,4 @@ export default async function SettingsPage() {
     </div>
   );
 }
+

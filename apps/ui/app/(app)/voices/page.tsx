@@ -1,14 +1,6 @@
 import type { VoiceClone, VoiceProvider } from "@voiceplatform/shared";
 
 import { api, ApiError } from "@/lib/api";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
 import { CloneVoiceForm } from "./clone-voice-form";
 import { CloneList } from "./clone-list";
 
@@ -57,70 +49,114 @@ export default async function VoicesPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold mb-2">Voices</h1>
-        <p className="text-sm text-zinc-500">
-          Stock catalog used in agent editors. Cloned voices appear below
-          once you upload a sample.
-        </p>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 glass-card p-6 rounded-3xl">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="badge badge-emerald text-[11px] font-bold">
+              Speech Synthesis Engine
+            </span>
+            <span className="text-xs text-[var(--c-text-dim)] font-medium">
+              {stock.length} stock voices • {clones.length} custom clones
+            </span>
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground mt-1">
+            Voice Catalog & Cloning
+          </h1>
+          <p className="mt-1 text-sm text-[var(--c-text-secondary)]">
+            Explore neural AI voice models from ElevenLabs, Cartesia, OpenAI, and Deepgram, or clone custom voices.
+          </p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Clone a voice</CardTitle>
-          <CardDescription>
-            Upload a 10-30 second clean speech sample. The cloned voice
-            becomes available in the agent editor.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Voice Cloning Form */}
+        <div className="lg:col-span-1 glass-card p-6 rounded-3xl space-y-4 border border-[var(--c-border)]">
+          <div>
+            <span className="badge badge-purple text-[10px] font-bold">
+              AI Voice Cloning
+            </span>
+            <h2 className="text-xl font-extrabold text-foreground mt-2">Clone a Custom Voice</h2>
+            <p className="text-xs text-[var(--c-text-secondary)] mt-1 leading-relaxed">
+              Upload a 10–30 second clean audio clip. Your custom cloned voice will immediately become available in the agent creator.
+            </p>
+          </div>
+          <div className="h-px bg-[var(--c-border)]" />
           <CloneVoiceForm />
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Your cloned voices</CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Cloned Voices List */}
+        <div className="lg:col-span-2 glass-card p-6 rounded-3xl space-y-4 border border-[var(--c-border)]">
+          <div>
+            <span className="badge badge-emerald text-[10px] font-bold">
+              Your Library
+            </span>
+            <h2 className="text-xl font-extrabold text-foreground mt-2">Cloned Voices</h2>
+            <p className="text-xs text-[var(--c-text-secondary)] mt-1">
+              Active custom voice clones assigned to your workspace.
+            </p>
+          </div>
+          <div className="h-px bg-[var(--c-border)]" />
           <CloneList clones={clones} />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {[...byProvider.entries()].map(([provider, voices]) => (
-        <Card key={provider}>
-          <CardHeader>
-            <CardTitle className="capitalize">{provider}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-zinc-500">
-                <tr>
-                  <th className="font-normal py-1.5">Name</th>
-                  <th className="font-normal py-1.5">Voice id</th>
-                  <th className="font-normal py-1.5">Gender</th>
-                  <th className="font-normal py-1.5">Language</th>
-                </tr>
-              </thead>
-              <tbody>
-                {voices.map((v) => (
-                  <tr
-                    key={`${v.provider}:${v.providerVoiceId}`}
-                    className="border-t border-zinc-100 dark:border-zinc-900"
-                  >
-                    <td className="font-medium py-1.5">{v.name}</td>
-                    <td className="font-mono text-xs py-1.5">
-                      {v.providerVoiceId}
-                    </td>
-                    <td className="py-1.5">{v.gender ?? "—"}</td>
-                    <td className="py-1.5">{v.language ?? "—"}</td>
+      {/* Stock Voice Catalog grouped by Provider */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-extrabold text-foreground">Stock Voice Library</h2>
+          <span className="text-xs text-[var(--c-text-dim)] font-medium">Grouped by Provider</span>
+        </div>
+
+        {[...byProvider.entries()].map(([provider, voices]) => (
+          <div key={provider} className="glass-card rounded-3xl overflow-hidden border border-[var(--c-border)]">
+            <div className="px-6 py-4 border-b border-[var(--c-border)] bg-[var(--c-overlay-xs)] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="w-3 h-3 rounded-full bg-[var(--brand)] inline-block" />
+                <h3 className="text-base font-extrabold text-foreground capitalize">{provider} Catalog</h3>
+              </div>
+              <span className="badge badge-emerald text-[10px] font-bold">
+                {voices.length} voices available
+              </span>
+            </div>
+
+            <div className="p-2">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-bold uppercase tracking-wider text-[var(--c-text-dim)] border-b border-[var(--c-border)]">
+                    <th className="px-5 py-3">Voice Name</th>
+                    <th className="px-5 py-3">Voice ID</th>
+                    <th className="px-5 py-3">Gender</th>
+                    <th className="px-5 py-3">Language</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      ))}
+                </thead>
+                <tbody className="divide-y divide-[var(--c-border)]">
+                  {voices.map((v) => (
+                    <tr
+                      key={`${v.provider}:${v.providerVoiceId}`}
+                      className="hover:bg-[var(--c-row-hover)] transition-colors"
+                    >
+                      <td className="px-5 py-3.5 font-bold text-foreground">{v.name}</td>
+                      <td className="px-5 py-3.5 font-mono text-xs text-[var(--brand)]">
+                        <span className="px-2 py-0.5 rounded-md bg-[var(--c-overlay-sm)] border border-[var(--c-border)]">
+                          {v.providerVoiceId}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-xs capitalize text-[var(--c-text-secondary)]">
+                        {v.gender ?? "—"}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-[var(--c-text-secondary)]">
+                        {v.language ?? "en-US"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
+
