@@ -164,8 +164,8 @@ export function Sidebar({ isSuperadmin, isActingTenant, balance, className }: Pr
       {/* ── Brand Logo Header ── */}
       <div className="px-5 py-5 border-b border-[var(--c-border)]">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="relative rounded-2xl p-2 bg-white/90 dark:bg-slate-900/90 border border-[var(--c-border)] shadow-md transition-transform duration-300 group-hover:scale-105 shrink-0 flex items-center justify-center overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.42_0.14_158_/_0.15)] to-transparent pointer-events-none" />
+          <div className="relative rounded-2xl p-2 bg-white/20 dark:bg-slate-900/20 backdrop-blur-md border border-[var(--c-border)] shadow-xs transition-transform duration-300 group-hover:scale-105 shrink-0 flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.42_0.14_158_/_0.10)] to-transparent pointer-events-none" />
             <Image
               src="/vaani_logo.png"
               alt="Vaani Logo"

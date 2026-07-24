@@ -48,14 +48,14 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
 
           {/* Vaani Logo Container with 2026 Glow */}
           <div className="relative group mb-8">
-            <div className="absolute -inset-2 bg-gradient-to-r from-[oklch(0.42_0.14_158)] via-[oklch(0.68_0.12_155)] to-[oklch(0.75_0.18_158)] rounded-3xl blur-xl opacity-30 group-hover:opacity-50 transition duration-500"></div>
-            <div className="relative bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl rounded-3xl p-6 border border-white/60 dark:border-slate-800/60 shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]">
+            <div className="absolute -inset-3 bg-gradient-to-r from-[oklch(0.42_0.14_158)] via-[oklch(0.68_0.12_155)] to-[oklch(0.75_0.18_158)] rounded-3xl blur-2xl opacity-25 group-hover:opacity-45 transition duration-500"></div>
+            <div className="relative bg-white/20 dark:bg-slate-900/20 backdrop-blur-md rounded-3xl p-6 border border-white/40 dark:border-slate-800/40 shadow-xl transition-transform duration-500 group-hover:scale-[1.02] flex items-center justify-center">
               <Image
                 src="/vaani_logo.png"
                 alt="Vaani Logo"
                 width={240}
                 height={240}
-                className="h-auto w-48 object-contain"
+                className="h-auto w-52 object-contain filter drop-shadow-sm"
                 priority
               />
             </div>
@@ -111,7 +111,7 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
           href="/"
           className="mb-8 flex items-center gap-3 lg:hidden group"
         >
-          <div className="relative rounded-xl overflow-hidden p-1.5 bg-white dark:bg-slate-900 border border-[var(--c-border)] shadow-md">
+          <div className="relative rounded-xl overflow-hidden p-1.5 bg-white/20 dark:bg-slate-900/20 backdrop-blur-sm border border-[var(--c-border)] shadow-xs">
             <Image
               src="/vaani_logo.png"
               alt="Vaani Logo"
