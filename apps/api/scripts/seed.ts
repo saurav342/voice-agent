@@ -10,14 +10,14 @@ import bcrypt from "bcrypt";
 const MONGO_URL = process.env.MONGO_URL!;
 const VOICELINK_CLIENT_ID = 1507; // Saurav Kumar
 
-const TENANT_ID = "rapidx-tenant";
-const AGENT_ID = "rapidx-receptionist";
+const TENANT_ID = "vaani-tenant";
+const AGENT_ID = "vaani-receptionist";
 const DIDS = [
   { number: "919484959291", botId: "244" },
 ];
 
-const SUPERADMIN = { email: "admin@rapidxai.com", password: "RapidXadmin2026" };
-const OWNER = { email: "swati@rapidxai.com", password: "RapidX2026" };
+const SUPERADMIN = { email: "admin@vaaniai.com", password: "VaaniXadmin2026" };
+const OWNER = { email: "swati@vaaniai.com", password: "VaaniX2026" };
 
 async function main() {
   const client = new MongoClient(MONGO_URL);

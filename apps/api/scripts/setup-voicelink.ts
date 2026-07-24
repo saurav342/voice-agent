@@ -48,7 +48,7 @@ async function main() {
   for (const r of routing.data) {
     const num = String(r.did_number);
     const bot = await vl<{ data: { id: number } }>("POST", "/v1/websocket-bot/create", {
-      bot_name: `RapidX AI - ${num}`,
+      bot_name: `VaaniX AI - ${num}`,
       websocket_url: `${WS}/ws/voicelink/${num}`,
       webhook_url: `${HTTP}/webhooks/voicelink`,
       status: 1,

@@ -2,7 +2,7 @@ import "dotenv/config";
 import { MongoClient } from "mongodb";
 
 const MONGO_URL = process.env.MONGO_URL!;
-const TENANT_ID = "rapidx-tenant";
+const TENANT_ID = "vaani-tenant";
 
 const AGENTS = [
   {
