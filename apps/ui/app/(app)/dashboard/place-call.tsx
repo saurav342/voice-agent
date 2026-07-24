@@ -15,7 +15,9 @@ export function PlaceCall() {
     fetch("/api/agents")
       .then((res) => (res.ok ? res.json() : { agents: [] }))
       .then((data) => {
-        const list: Agent[] = data.agents ?? [];
+        const list: Agent[] = (data.agents as Agent[] ?? []).sort((a: Agent, b: Agent) =>
+          (a.name || "").localeCompare(b.name || "")
+        );
         setAgents(list);
         if (list.length > 0) {
           setSelectedAgentId(list[0]._id);
