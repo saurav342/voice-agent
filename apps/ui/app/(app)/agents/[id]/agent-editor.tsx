@@ -437,6 +437,7 @@ export function AgentEditor({ agent }: Props) {
           <TabsTrigger value="prompt">Prompt</TabsTrigger>
           <TabsTrigger value="voice">Voice</TabsTrigger>
           <TabsTrigger value="model">Model</TabsTrigger>
+          <TabsTrigger value="triggers">End Call Triggers</TabsTrigger>
         </TabsList>
 
         <TabsContent value="prompt">
@@ -604,6 +605,63 @@ export function AgentEditor({ agent }: Props) {
                     })
                   }
                 />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="triggers">
+          <Card>
+            <CardContent className="space-y-4 pt-6">
+              <div className="space-y-1.5">
+                <Label htmlFor="end-call-triggers">End Call Trigger Phrases</Label>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Enter phrases (comma-separated or one per line) that will trigger the agent to automatically end the call when spoken during the conversation.
+                </p>
+                <Textarea
+                  id="end-call-triggers"
+                  rows={4}
+                  value={(draft.endCallTriggers ?? []).join(", ")}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const items = raw
+                      .split(/,|\n/)
+                      .map((s) => s.trim())
+                      .filter((s) => s.length > 0);
+                    setDraft({ ...draft, endCallTriggers: items });
+                  }}
+                  placeholder="e.g. goodbye, farewell, talk to you later, end call"
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              <div className="pt-2">
+                <Label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                  {draft.endCallTriggers && draft.endCallTriggers.length > 0
+                    ? "Active Custom Triggers:"
+                    : "Default Fallback Triggers (Active when no custom triggers set):"}
+                </Label>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(draft.endCallTriggers && draft.endCallTriggers.length > 0
+                    ? draft.endCallTriggers
+                    : [
+                        "goodbye",
+                        "bye bye",
+                        "bye-bye",
+                        "have a great day",
+                        "have a nice day",
+                        "talk to you later",
+                        "talk to you soon",
+                      ]
+                  ).map((t, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                    >
+                      🗣️ &quot;{t}&quot;
+                    </span>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
