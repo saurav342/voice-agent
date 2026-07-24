@@ -1,0 +1,41 @@
+# Render Blueprint deployment specification for Backend API (@voiceplatform/api)
+services:
+  - type: web
+    name: voice-platform-api
+    env: node
+    region: singapore
+    plan: starter
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @voiceplatform/shared build && pnpm --filter @voiceplatform/api build
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGO_URL
+        sync: false # Set in Render Dashboard (e.g., MongoDB Atlas URI)
+      - key: REDIS_URL
+        sync: false # Set in Render Dashboard (optional, Upstash/Render Redis)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BYOK_ENCRYPTION_KEY
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: CARTESIA_API_KEY
+        sync: false
+      - key: PLAYHT_USER_ID
+        sync: false
+      - key: PLAYHT_API_KEY
+        sync: false
+      - key: VOICELINK_RESELLER_TOKEN
+        sync: false
+      - key: VOICELINK_RESELLER_USERNAME
+        sync: false
+      - key: VOICELINK_RESELLER_PASSWORD
+        sync: false

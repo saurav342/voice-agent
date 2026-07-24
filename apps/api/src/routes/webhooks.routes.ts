@@ -100,7 +100,7 @@ webhooksRouter.post("/voicelink", async (req, res) => {
 
     if (normalizedCallId) {
       const callId = extractCallIdFromPayload(raw);
-      const query = callId
+      const query: any = callId
         ? { _id: callId }
         : { providerCallId: normalizedCallId };
 
@@ -199,7 +199,7 @@ webhooksRouter.post("/voicelink", async (req, res) => {
   });
   if (normalizedCallId) {
     const callId = customParams.callId;
-    const query = callId
+    const query: any = callId
       ? { _id: callId }
       : { providerCallId: normalizedCallId };
 

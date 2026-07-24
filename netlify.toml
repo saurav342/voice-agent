@@ -1,0 +1,10 @@
+# Netlify deployment configuration for Next.js Frontend (@voiceplatform/ui)
+[build]
+  command = "pnpm --filter @voiceplatform/shared build && pnpm --filter @voiceplatform/ui build"
+  publish = "apps/ui/.next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
