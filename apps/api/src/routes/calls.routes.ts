@@ -30,11 +30,6 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
     return;
   }
 
-  const reqAgentId = (req.body as { agentId?: unknown })?.agentId;
-  const targetAgentId = typeof reqAgentId === "string" && reqAgentId.length > 0
-    ? reqAgentId
-    : (did.defaultAgentId || "pending");
-
   const dids = getDb().collection<Did>("dids");
   const did = typeof didId === "string" && didId.length > 0
     ? await dids.findOne(tenantScope(req, { _id: didId }))
@@ -43,6 +38,11 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
     res.status(404).json({ error: "no active DID for this tenant" });
     return;
   }
+
+  const reqAgentId = (req.body as { agentId?: unknown })?.agentId;
+  const targetAgentId = typeof reqAgentId === "string" && reqAgentId.length > 0
+    ? reqAgentId
+    : (did.defaultAgentId || "pending");
 
   const wsBase = process.env.WS_BASE_URL;
   if (!wsBase) {
@@ -61,6 +61,11 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
       toNumber,
       websocketUrl,
       webhookUrl,
+      customParameters: JSON.stringify({
+        callId,
+        agentId: targetAgentId,
+        tenantId: req.tenantId,
+      }),
     });
 
     const db = getDb();

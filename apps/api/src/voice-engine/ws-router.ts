@@ -73,43 +73,64 @@ export function mountCallWsRouter(
       }
 
       // Resolve initial agent. Outbound path has the call already
-      // inserted (campaign-engine pre-creates it); inbound falls back
+      // inserted (campaign-engine / place-call pre-creates it); inbound falls back
       // to the DID's default.
       let agentId = did.defaultAgentId;
       let callId = callIdParam ?? undefined;
       let customParameters: Record<string, string> = {};
 
+      let callDoc: Call | null = null;
       if (callIdParam) {
-        const call = await db()
+        callDoc = await db()
           .collection<Call>("calls")
           .findOne({ _id: callIdParam });
-        if (call && call.tenantId === did.tenantId) {
-          agentId = call.agentId;
-          customParameters.phone = call.toNumber;
-          customParameters.to = call.toNumber;
-          customParameters.from = call.fromNumber;
+      }
 
-          if (call.campaignId) {
-            const campaign = await db()
-              .collection<Campaign>("campaigns")
-              .findOne({ _id: call.campaignId, tenantId: did.tenantId });
-            if (campaign) {
-              const numberEntry = campaign.numbers.find(
-                (n: { phone: string }) => n.phone === call.toNumber
-              );
-              if (numberEntry && numberEntry.customData) {
-                for (const [k, v] of Object.entries(numberEntry.customData)) {
-                  customParameters[k] = String(v);
-                }
+      if (!callDoc) {
+        // VoiceLink or proxies may strip query params on WS upgrade.
+        // Fall back to looking up the most recent pending/ringing outbound call for this DID within last 3 mins.
+        const recentCutoff = new Date(Date.now() - 3 * 60 * 1000);
+        callDoc = await db()
+          .collection<Call>("calls")
+          .findOne(
+            {
+              fromNumber: did.providerNumber,
+              tenantId: did.tenantId,
+              direction: "out",
+              status: { $in: ["ringing", "queued"] },
+              createdAt: { $gte: recentCutoff },
+            },
+            { sort: { createdAt: -1 } }
+          );
+      }
+
+      if (callDoc && callDoc.tenantId === did.tenantId) {
+        agentId = callDoc.agentId;
+        callId = callDoc._id.toString();
+        customParameters.phone = callDoc.toNumber;
+        customParameters.to = callDoc.toNumber;
+        customParameters.from = callDoc.fromNumber;
+
+        if (callDoc.campaignId) {
+          const campaign = await db()
+            .collection<Campaign>("campaigns")
+            .findOne({ _id: callDoc.campaignId, tenantId: did.tenantId });
+          if (campaign) {
+            const numberEntry = campaign.numbers.find(
+              (n: { phone: string }) => n.phone === callDoc!.toNumber
+            );
+            if (numberEntry && numberEntry.customData) {
+              for (const [k, v] of Object.entries(numberEntry.customData)) {
+                customParameters[k] = String(v);
               }
             }
           }
-        } else {
-          log.warn(
-            { callId: callIdParam, didId },
-            "outbound upgrade with unknown/cross-tenant callId — using DID default",
-          );
         }
+      } else if (callIdParam) {
+        log.warn(
+          { callId: callIdParam, didId },
+          "outbound upgrade with unknown/cross-tenant callId — using DID default",
+        );
       }
 
       if (!agentId) {

@@ -47,6 +47,7 @@ const TENANT_SCOPED_ROUTES = [
   "agents.routes.ts",
   "calls.routes.ts",
   "campaigns.routes.ts",
+  "dashboard.routes.ts",
   "dids.routes.ts",
   "voice-clones.routes.ts",
 ];
