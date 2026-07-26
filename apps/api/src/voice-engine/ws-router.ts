@@ -260,6 +260,7 @@ function startSession(args: {
   const session = new CallSession(ws, {
     callId,
     tenantId: did.tenantId,
+    agentId: agent._id,
     provider,
     systemPrompt: agent.prompt,
     greeting: agent.greeting,

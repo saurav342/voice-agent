@@ -147,6 +147,7 @@ async function exportToExcel(calls: Call[]) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export function CallsTable({ initialCalls }: CallsTableProps) {
+  const [callsList, setCallsList] = useState<Call[]>(initialCalls);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   const [selectedCall, setSelectedCall] = useState<(Call & { transcript?: Transcript | null }) | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -158,6 +159,26 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
   const [directionFilter, setDirectionFilter] = useState<"all" | "in" | "out">("all");
   const [statusFilter, setStatusFilter] = useState<Set<Call["status"]>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+
+  React.useEffect(() => {
+    setCallsList(initialCalls);
+  }, [initialCalls]);
+
+  const handleKillCall = useCallback(async (callId: string) => {
+    try {
+      const res = await fetch(`/api/calls/${callId}/kill`, { method: "POST" });
+      if (res.ok) {
+        setCallsList((prev) =>
+          prev.map((c) =>
+            c._id === callId ? { ...c, status: "completed" as const } : c
+          )
+        );
+        setSelectedCall((prev) => (prev && prev._id === callId ? { ...prev, status: "completed" as const } : prev));
+      }
+    } catch (err) {
+      console.error("Failed to kill call:", err);
+    }
+  }, []);
 
   /* ── Active filter count (for badge / clear-all visibility) ── */
   const activeFilterCount = useMemo(() => {
@@ -196,7 +217,7 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
 
     const q = searchQuery.trim().toLowerCase();
 
-    return initialCalls.filter((c) => {
+    return callsList.filter((c) => {
       // Date filter
       if (activePreset !== "all") {
         const created = new Date(c.createdAt);
@@ -214,7 +235,7 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
       if (q && !c.fromNumber.toLowerCase().includes(q) && !c.toNumber.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [initialCalls, activePreset, customFrom, customTo, attentionFilter, directionFilter, statusFilter, searchQuery]);
+  }, [callsList, activePreset, customFrom, customTo, attentionFilter, directionFilter, statusFilter, searchQuery]);
 
   /* ── Handlers ───────────────────────────────────────────────── */
   const handleRowClick = useCallback(async (callId: string) => {
@@ -497,7 +518,7 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
               className="border-b border-[var(--c-border)]"
               style={{ background: "var(--c-table-head)" }}
             >
-              {(["When", "Direction", "From", "To", "Status", "Needs Attention", "Duration", "Cost"] as const).map((h, i) => (
+              {(["When", "Direction", "From", "To", "Status", "Needs Attention", "Duration", "Cost", "Actions"] as const).map((h, i) => (
                 <th
                   key={h}
                   className={`px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-[var(--c-text-dim)] whitespace-nowrap ${i >= 6 ? "text-right" : "text-left"}`}
@@ -510,7 +531,7 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
           <tbody>
             {filteredCalls.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-12 text-center text-sm text-[var(--c-text-secondary)]">
+                <td colSpan={9} className="px-5 py-12 text-center text-sm text-[var(--c-text-secondary)]">
                   <div className="flex flex-col items-center gap-2">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--c-text-dim)]">
                       <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -525,6 +546,7 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
                 const statusCfg =
                   STATUS_CONFIG[c.status] ?? { label: c.status, cls: "badge-muted" };
                 const attention = needsAttention(c.sentiment);
+                const isActive = c.status === "inprogress" || c.status === "ringing" || c.status === "queued";
 
                 return (
                   <tr
@@ -620,6 +642,29 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
                         <span className="text-[var(--c-text-dim)]">—</span>
                       )}
                     </td>
+
+                    {/* Actions */}
+                    <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      {isActive ? (
+                        <button
+                          id={`kill-call-btn-${c._id}`}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await handleKillCall(c._id);
+                          }}
+                          title="Immediately terminate this active call"
+                          className="px-2.5 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg transition-all flex items-center gap-1 shadow-sm ml-auto animate-pulse"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
+                            <line x1="22" y1="2" x2="2" y2="22" />
+                          </svg>
+                          Kill Call
+                        </button>
+                      ) : (
+                        <span className="text-[var(--c-text-dim)] text-xs">—</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })
@@ -631,18 +676,32 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
       {/* ── Call Detail Dialog ─────────────────────────────────── */}
       <Dialog open={selectedCallId !== null} onOpenChange={(open) => { if (!open) handleClose(); }}>
         <DialogContent className="sm:max-w-4xl max-w-full w-full h-[85vh] flex flex-col p-6 rounded-2xl bg-card border border-[var(--c-border)] gap-0 overflow-hidden shadow-2xl">
-          <DialogHeader className="border-b pb-4 border-[var(--c-border)] select-none">
-            <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3">
-              <span>Call Details</span>
-              {selectedCall && (
-                <span className={`badge ${STATUS_CONFIG[selectedCall.status]?.cls || "badge-muted"}`}>
-                  {STATUS_CONFIG[selectedCall.status]?.label || selectedCall.status}
-                </span>
-              )}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-[var(--c-text-secondary)] mt-1">
-              {selectedCall ? `Call ID: ${selectedCall._id}` : "Loading call detail..."}
-            </DialogDescription>
+          <DialogHeader className="border-b pb-4 border-[var(--c-border)] select-none flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3">
+                <span>Call Details</span>
+                {selectedCall && (
+                  <span className={`badge ${STATUS_CONFIG[selectedCall.status]?.cls || "badge-muted"}`}>
+                    {STATUS_CONFIG[selectedCall.status]?.label || selectedCall.status}
+                  </span>
+                )}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-[var(--c-text-secondary)] mt-1">
+                {selectedCall ? `Call ID: ${selectedCall._id}` : "Loading call detail..."}
+              </DialogDescription>
+            </div>
+            {selectedCall && (selectedCall.status === "inprogress" || selectedCall.status === "ringing" || selectedCall.status === "queued") && (
+              <button
+                onClick={() => handleKillCall(selectedCall._id)}
+                className="px-3.5 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-rose-600/30 mr-6"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
+                  <line x1="22" y1="2" x2="2" y2="22" />
+                </svg>
+                Kill Call
+              </button>
+            )}
           </DialogHeader>
 
           {loadingDetails ? (

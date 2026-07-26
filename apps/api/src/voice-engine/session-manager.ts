@@ -72,6 +72,61 @@ export interface SessionConfig {
    * existing tests; production telephony paths set `mulaw8k-pcm16_24k`.
    */
   audioFormat?: SessionAudioFormat;
+  /** Agent ID associated with this session. */
+  agentId?: string;
+}
+
+const activeSessions = new Map<string, CallSession>();
+
+export function registerActiveSession(callId: string, session: CallSession): void {
+  activeSessions.set(callId, session);
+}
+
+export function unregisterActiveSession(callId: string, session?: CallSession): void {
+  if (session) {
+    if (activeSessions.get(callId) === session) {
+      activeSessions.delete(callId);
+    }
+  } else {
+    activeSessions.delete(callId);
+  }
+}
+
+export function getActiveSession(callId: string): CallSession | undefined {
+  return activeSessions.get(callId);
+}
+
+export function getActiveSessions(): Map<string, CallSession> {
+  return activeSessions;
+}
+
+export async function killCallSession(callId: string, reason = "user_killed"): Promise<boolean> {
+  const session = activeSessions.get(callId);
+  if (session) {
+    log.info({ callId, reason }, "killing active call session");
+    await session.close();
+    activeSessions.delete(callId);
+    return true;
+  }
+  return false;
+}
+
+export async function killAgentCallSessions(agentId: string, tenantId?: string, reason = "user_killed"): Promise<number> {
+  let count = 0;
+  const sessionsToKill: CallSession[] = [];
+  for (const session of activeSessions.values()) {
+    const sAgentId = session.cfg.agentId || session.cfg.customParameters?.agentId;
+    const sTenantId = session.cfg.tenantId;
+    if (sAgentId === agentId && (!tenantId || sTenantId === tenantId)) {
+      sessionsToKill.push(session);
+    }
+  }
+  for (const session of sessionsToKill) {
+    log.info({ callId: session.cfg.callId, agentId, reason }, "killing active call session for agent");
+    await session.close();
+    count++;
+  }
+  return count;
 }
 
 export interface StartFrameInfo {
@@ -153,16 +208,20 @@ export class CallSession {
 
   constructor(
     private socket: WebSocket,
-    private cfg: SessionConfig,
+    public readonly cfg: SessionConfig,
   ) {
     if (cfg.customParameters) {
       this.customParameters = { ...cfg.customParameters };
     }
+    registerActiveSession(this.cfg.callId, this);
   }
 
   updateCallId(newCallId: string): void {
-    log.info({ oldCallId: this.cfg.callId, newCallId }, "updating session callId");
+    const oldId = this.cfg.callId;
+    log.info({ oldCallId: oldId, newCallId }, "updating session callId");
+    unregisterActiveSession(oldId, this);
     this.cfg.callId = newCallId;
+    registerActiveSession(newCallId, this);
   }
 
   async start(): Promise<void> {
@@ -496,6 +555,7 @@ export class CallSession {
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    unregisterActiveSession(this.cfg.callId, this);
     if (this.paceTimer) {
       clearInterval(this.paceTimer);
       this.paceTimer = undefined;

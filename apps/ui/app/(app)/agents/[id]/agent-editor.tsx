@@ -177,8 +177,10 @@ export function AgentEditor({ agent }: Props) {
   const [draft, setDraft] = useState<Agent>(agent);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [killingCalls, setKillingCalls] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [killSuccessMsg, setKillSuccessMsg] = useState<string | null>(null);
   const [voices, setVoices] = useState<LibraryVoice[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
@@ -283,6 +285,30 @@ export function AgentEditor({ agent }: Props) {
     }
   }
 
+  async function killAgentCalls() {
+    if (isNew) return;
+    setKillingCalls(true);
+    setError(null);
+    setKillSuccessMsg(null);
+    try {
+      const res = await fetch("/api/calls/kill", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agentId: draft._id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Failed to kill active calls");
+      } else {
+        setKillSuccessMsg(data.message ?? "Active call(s) terminated successfully!");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to kill calls");
+    } finally {
+      setKillingCalls(false);
+    }
+  }
+
   const voicesForProvider = voices.filter(
     (v) => v.provider === draft.voice.provider,
   );
@@ -316,6 +342,21 @@ export function AgentEditor({ agent }: Props) {
             <span className="text-xs text-zinc-500">
               Saved {savedAt.toLocaleTimeString()}
             </span>
+          )}
+          {!isNew && (
+            <Button
+              variant="destructive"
+              className="bg-rose-600 hover:bg-rose-700 font-semibold shadow-sm flex items-center gap-1.5"
+              onClick={killAgentCalls}
+              disabled={killingCalls || saving || deleting}
+              title="Immediately terminate any active call made by this agent"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
+                <line x1="22" y1="2" x2="2" y2="22" />
+              </svg>
+              {killingCalls ? "Killing Calls…" : "Kill Call"}
+            </Button>
           )}
           {!isNew && draft.status === "draft" && (
             <Button
@@ -351,9 +392,10 @@ export function AgentEditor({ agent }: Props) {
           )}
           {!isNew && (
             <Button
-              variant="destructive"
+              variant="outline"
               onClick={remove}
               disabled={deleting || saving}
+              className="text-zinc-600 hover:text-red-600"
             >
               {deleting ? "Deleting…" : "Delete"}
             </Button>
@@ -363,6 +405,13 @@ export function AgentEditor({ agent }: Props) {
           </Button>
         </div>
       </div>
+
+      {killSuccessMsg && (
+        <div className="mb-6 rounded-md border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+          <span>{killSuccessMsg}</span>
+          <button onClick={() => setKillSuccessMsg(null)} className="text-xs opacity-70 hover:opacity-100 font-bold">✕</button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">

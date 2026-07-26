@@ -8,6 +8,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { requireTenant, tenantScope } from "../middleware/tenant.js";
 import { createVoicelinkProvider } from "../adapters/telephony/voicelink/index.js";
 import { createLogger } from "../lib/logger.js";
+import { killCallSession, killAgentCallSessions } from "../voice-engine/session-manager.js";
 
 const log = createLogger("calls");
 
@@ -179,4 +180,99 @@ callsRouter.get("/:id", async (req: Request, res: Response) => {
     ...call,
     transcript: transcript || null,
   });
+});
+
+/**
+ * POST /calls/kill — bulk or agent call kill endpoint.
+ * Body: { callId?: string, agentId?: string }
+ */
+callsRouter.post("/kill", async (req: Request, res: Response) => {
+  const { callId, agentId } = (req.body as { callId?: string; agentId?: string }) || {};
+  const db = getDb();
+
+  if (callId) {
+    const queryId = ObjectId.isValid(callId)
+      ? { $in: [callId, new ObjectId(callId)] }
+      : callId;
+
+    const call = await db.collection<Call>("calls").findOne(tenantScope(req, { _id: queryId as any }));
+    if (!call) {
+      res.status(404).json({ error: "Call not found" });
+      return;
+    }
+    const killedInMemory = await killCallSession(call._id.toString(), "user_killed");
+    const now = new Date();
+    const durationSec = Math.max(1, Math.round((now.getTime() - new Date(call.createdAt).getTime()) / 1000));
+    await db.collection<Call>("calls").updateOne(
+      { _id: call._id },
+      {
+        $set: {
+          status: "completed",
+          endedReason: "user_killed",
+          durationSec: call.durationSec || durationSec,
+          updatedAt: now,
+        },
+      }
+    );
+    log.info({ callId: call._id, killedInMemory }, "call killed via POST /calls/kill");
+    res.json({ ok: true, callId: call._id, killedInMemory, count: 1, message: "Call terminated successfully" });
+    return;
+  }
+
+  if (agentId) {
+    const count = await killAgentCallSessions(agentId, req.tenantId ?? undefined, "user_killed");
+    const now = new Date();
+    await db.collection<Call>("calls").updateMany(
+      tenantScope(req, { agentId, status: { $in: ["ringing", "inprogress", "queued"] } }),
+      {
+        $set: {
+          status: "completed",
+          endedReason: "user_killed",
+          updatedAt: now,
+        },
+      }
+    );
+    log.info({ agentId, tenantId: req.tenantId, count }, "agent calls killed via POST /calls/kill");
+    res.json({ ok: true, agentId, count, message: `Terminated ${count} active call(s) for agent` });
+    return;
+  }
+
+  res.status(400).json({ error: "Must specify callId or agentId" });
+});
+
+/**
+ * POST /calls/:id/kill — terminate specific call by id.
+ */
+callsRouter.post("/:id/kill", async (req: Request, res: Response) => {
+  const callId = req.params.id;
+  const db = getDb();
+
+  const queryId = ObjectId.isValid(callId)
+    ? { $in: [callId, new ObjectId(callId)] }
+    : callId;
+
+  const call = await db.collection<Call>("calls").findOne(tenantScope(req, { _id: queryId as any }));
+  if (!call) {
+    res.status(404).json({ error: "Call not found" });
+    return;
+  }
+
+  const killedInMemory = await killCallSession(call._id.toString(), "user_killed");
+  const now = new Date();
+  const durationSec = Math.max(1, Math.round((now.getTime() - new Date(call.createdAt).getTime()) / 1000));
+
+  await db.collection<Call>("calls").updateOne(
+    { _id: call._id },
+    {
+      $set: {
+        status: "completed",
+        endedReason: "user_killed",
+        durationSec: call.durationSec || durationSec,
+        updatedAt: now,
+      },
+    }
+  );
+
+  log.info({ callId: call._id, killedInMemory }, "call killed via POST /calls/:id/kill");
+  res.json({ ok: true, callId: call._id, killedInMemory, message: "Call terminated successfully" });
 });

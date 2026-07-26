@@ -10,6 +10,7 @@ export function PlaceCall() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [activeCallId, setActiveCallId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/agents")
@@ -28,6 +29,7 @@ export function PlaceCall() {
 
   async function call() {
     setStatus({ kind: "calling" });
+    setActiveCallId(null);
     try {
       const res = await fetch("/api/calls/dial", {
         method: "POST",
@@ -42,7 +44,34 @@ export function PlaceCall() {
         setStatus({ kind: "err", msg: data.error ?? `Call failed (${res.status})` });
         return;
       }
+      if (data.callId) {
+        setActiveCallId(data.callId);
+      }
       setStatus({ kind: "ok", msg: `Calling ${data.from} → ${data.to}. Pick up your phone.` });
+    } catch (e) {
+      setStatus({ kind: "err", msg: (e as Error).message });
+    }
+  }
+
+  async function killCall() {
+    try {
+      let res;
+      if (activeCallId) {
+        res = await fetch(`/api/calls/${activeCallId}/kill`, { method: "POST" });
+      } else {
+        res = await fetch("/api/calls/kill", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ agentId: selectedAgentId || undefined }),
+        });
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setStatus({ kind: "err", msg: "Call terminated immediately via Kill Button." });
+        setActiveCallId(null);
+      } else {
+        setStatus({ kind: "err", msg: data.error ?? "Failed to kill call" });
+      }
     } catch (e) {
       setStatus({ kind: "err", msg: (e as Error).message });
     }
@@ -135,36 +164,53 @@ export function PlaceCall() {
           />
         </div>
 
-        <button
-          id="quick-dial-call-btn"
-          onClick={call}
-          disabled={status.kind === "calling"}
-          className="h-12 px-7 rounded-xl text-sm font-bold text-white transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed hover:scale-105 active:scale-95 shrink-0"
-          style={{
-            background:
-              status.kind === "calling"
-                ? "oklch(0.42 0.14 158)"
-                : "linear-gradient(135deg, oklch(0.42 0.14 158), oklch(0.55 0.16 155))",
-            boxShadow:
-              status.kind === "calling"
-                ? "none"
-                : "0 6px 20px oklch(0.42 0.14 158 / 0.30)",
-          }}
-        >
-          {status.kind === "calling" ? (
-            <span className="flex items-center gap-2">
-              <span className="inline-block w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" aria-hidden="true" />
-              Dispatching…
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
+        <div className="flex gap-2 shrink-0">
+          <button
+            id="quick-dial-call-btn"
+            onClick={call}
+            disabled={status.kind === "calling"}
+            className="h-12 px-7 rounded-xl text-sm font-bold text-white transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed hover:scale-105 active:scale-95 shrink-0"
+            style={{
+              background:
+                status.kind === "calling"
+                  ? "oklch(0.42 0.14 158)"
+                  : "linear-gradient(135deg, oklch(0.42 0.14 158), oklch(0.55 0.16 155))",
+              boxShadow:
+                status.kind === "calling"
+                  ? "none"
+                  : "0 6px 20px oklch(0.42 0.14 158 / 0.30)",
+            }}
+          >
+            {status.kind === "calling" ? (
+              <span className="flex items-center gap-2">
+                <span className="inline-block w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" aria-hidden="true" />
+                Dispatching…
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14.92z" />
+                </svg>
+                Call Now
+              </span>
+            )}
+          </button>
+
+          {(status.kind === "calling" || status.kind === "ok" || activeCallId) && (
+            <button
+              id="quick-dial-kill-btn"
+              onClick={killCall}
+              title="Immediately terminate the active agent call"
+              className="h-12 px-5 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-rose-600/30 animate-pulse"
+            >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14.92z" />
+                <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
+                <line x1="22" y1="2" x2="2" y2="22" />
               </svg>
-              Call Now
-            </span>
+              Kill Call
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
       {status.msg && (
