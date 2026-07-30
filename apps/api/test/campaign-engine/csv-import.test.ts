@@ -55,4 +55,20 @@ describe("parseCSV", () => {
     expect(r.numbers).toHaveLength(1);
     expect(r.rejected).toEqual([]);
   });
+
+  it("handles BOM and flexible headers like Mobile Number", () => {
+    const r = parseCSV("\uFEFF\"Mobile Number\",Name\n\"+91 99999-99999\",Asha\n");
+    expect(r.numbers).toHaveLength(1);
+    expect(r.numbers[0]).toEqual({
+      phone: "+919999999999",
+      customData: { name: "Asha" },
+    });
+  });
+
+  it("sanitizes formatted phone numbers with spaces, dashes, and parens", () => {
+    const r = parseCSV("phone\n+91 (981) 111-1111\n'9848012345'\n");
+    expect(r.numbers).toHaveLength(2);
+    expect(r.numbers[0].phone).toBe("+919811111111");
+    expect(r.numbers[1].phone).toBe("9848012345");
+  });
 });

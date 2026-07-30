@@ -204,7 +204,7 @@ callsRouter.post("/kill", async (req: Request, res: Response) => {
     const now = new Date();
     const durationSec = Math.max(1, Math.round((now.getTime() - new Date(call.createdAt).getTime()) / 1000));
     await db.collection<Call>("calls").updateOne(
-      { _id: call._id },
+      tenantScope(req, { _id: call._id }),
       {
         $set: {
           status: "completed",
@@ -262,7 +262,7 @@ callsRouter.post("/:id/kill", async (req: Request, res: Response) => {
   const durationSec = Math.max(1, Math.round((now.getTime() - new Date(call.createdAt).getTime()) / 1000));
 
   await db.collection<Call>("calls").updateOne(
-    { _id: call._id },
+    tenantScope(req, { _id: call._id }),
     {
       $set: {
         status: "completed",

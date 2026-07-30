@@ -28,13 +28,31 @@ export interface CSVImportResult {
   rejected: Array<{ line: number; reason: string }>;
 }
 
+const KNOWN_PHONE_HEADERS = new Set([
+  "phone",
+  "phone_number",
+  "phone number",
+  "phonenumber",
+  "mobile",
+  "mobile_number",
+  "mobile number",
+  "mobilenumber",
+  "contact",
+  "contact_number",
+  "contact number",
+  "contactnumber",
+  "number",
+  "telephone",
+]);
+
 export function parseCSV(input: string): CSVImportResult {
-  const rows = tokenize(input);
+  const cleanedInput = input.replace(/^\uFEFF/, "");
+  const rows = tokenize(cleanedInput);
   if (rows.length === 0) {
     throw new CSVImportError("CSV is empty");
   }
-  const header = rows[0].map((c) => c.trim().toLowerCase());
-  const phoneIdx = header.findIndex((h) => h === "phone" || h === "phone_number");
+  const header = rows[0].map((c) => c.trim().toLowerCase().replace(/^['"]|['"]$/g, ""));
+  const phoneIdx = header.findIndex((h) => KNOWN_PHONE_HEADERS.has(h));
   if (phoneIdx === -1) {
     throw new CSVImportError("missing required 'phone' column");
   }
@@ -45,9 +63,10 @@ export function parseCSV(input: string): CSVImportResult {
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (row.length === 1 && row[0] === "") continue; // blank line
-    const phone = (row[phoneIdx] ?? "").trim();
+    const rawPhone = row[phoneIdx] ?? "";
+    const phone = sanitizePhone(rawPhone);
     if (!isValidPhone(phone)) {
-      rejected.push({ line: i + 1, reason: `invalid phone "${phone}"` });
+      rejected.push({ line: i + 1, reason: `invalid phone "${rawPhone.trim()}"` });
       continue;
     }
     const customData: Record<string, string> = {};
@@ -61,6 +80,12 @@ export function parseCSV(input: string): CSVImportResult {
     numbers.push({ phone, customData });
   }
   return { numbers, rejected };
+}
+
+function sanitizePhone(s: string): string {
+  let cleaned = s.trim().replace(/^['"]|['"]$/g, "");
+  cleaned = cleaned.replace(/[\s\-\.\(\)]/g, "");
+  return cleaned;
 }
 
 function isValidPhone(s: string): boolean {

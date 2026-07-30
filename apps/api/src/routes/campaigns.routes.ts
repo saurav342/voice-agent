@@ -106,14 +106,15 @@ campaignsRouter.delete("/:id", async (req: Request, res: Response) => {
 // ---------- CSV import ----------
 
 const ImportBody = z.object({
-  csvBase64: z.string().min(1),
+  csvBase64: z.string().optional(),
+  csvText: z.string().optional(),
   replace: z.boolean().default(false),
 });
 
 campaignsRouter.post("/:id/numbers/import", async (req: Request, res: Response) => {
   const parsed = ImportBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Invalid input" });
+  if (!parsed.success || (!parsed.data.csvText && !parsed.data.csvBase64)) {
+    res.status(400).json({ error: "csvText or csvBase64 is required" });
     return;
   }
   const campaigns = getDb().collection<Campaign>("campaigns");
@@ -128,7 +129,10 @@ campaignsRouter.post("/:id/numbers/import", async (req: Request, res: Response) 
   }
   let result;
   try {
-    result = parseCSV(Buffer.from(parsed.data.csvBase64, "base64").toString("utf8"));
+    const content = parsed.data.csvText
+      ? parsed.data.csvText
+      : Buffer.from(parsed.data.csvBase64!, "base64").toString("utf8");
+    result = parseCSV(content);
   } catch (err) {
     if (err instanceof CSVImportError) {
       res.status(400).json({ error: err.message });
@@ -154,6 +158,7 @@ campaignsRouter.post("/:id/numbers/import", async (req: Request, res: Response) 
   res.json({
     imported: result.numbers.length,
     rejected: result.rejected,
+    rejectedCount: result.rejected.length,
     total: merged.length,
   });
 });
