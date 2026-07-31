@@ -6,6 +6,7 @@ export const CampaignSchedule = z.object({
   startAt: z.coerce.date(),
   timezone: z.string().default("Asia/Kolkata"),
   pacingCallsPerMinute: z.number().int().min(1).max(600).default(10),
+  maxConcurrentCalls: z.number().int().min(1).max(50).default(1),
   retries: z.number().int().min(0).max(10).default(0),
 });
 

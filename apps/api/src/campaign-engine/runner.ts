@@ -69,19 +69,38 @@ export async function dialNextLead(
     return { status: "no-more-leads", campaign: updated ?? campaign };
   }
 
-  const target = campaign.numbers[campaign.cursor] as CampaignNumber;
-  const callId = newId();
-
   // Reserve cursor + count BEFORE the originate so a race never
-  // double-dials the same lead. If originate fails we still mark this
-  // lead as failed and the cursor stays advanced.
-  await deps.campaigns.updateOne(
-    { _id: campaignId, tenantId, status: "running" },
+  // double-dials the same lead. Using returnDocument: "before" guarantees
+  // atomic ownership of targetIndex even during concurrent parallel calls.
+  const reserved = await deps.campaigns.findOneAndUpdate(
+    {
+      _id: campaignId,
+      tenantId,
+      status: "running",
+      cursor: { $lt: campaign.numbers.length },
+    },
     {
       $inc: { cursor: 1, "stats.dialed": 1 },
       $set: { updatedAt: now() },
     },
+    { returnDocument: "before" },
   );
+
+  if (!reserved) {
+    const current = await deps.campaigns.findOne({ _id: campaignId, tenantId });
+    if (current?.status !== "running") {
+      return { status: "paused", campaign: current ?? campaign };
+    }
+    return { status: "no-more-leads", campaign: current ?? campaign };
+  }
+
+  const targetIndex = reserved.cursor;
+  const target = reserved.numbers[targetIndex] as CampaignNumber;
+  if (!target) {
+    return { status: "no-more-leads", campaign: reserved };
+  }
+
+  const callId = newId();
 
   // Per-call WS URL so Voicelink streams audio to /ws/voicelink/<didId>
   // with our callId in the query. Looking up the DID row is O(1) on the
@@ -169,3 +188,20 @@ export function pacingIntervalMs(callsPerMinute: number): number {
   if (callsPerMinute <= 0) return 60_000;
   return Math.floor(60_000 / callsPerMinute);
 }
+
+/**
+ * Drains up to `count` leads from a campaign concurrently in parallel.
+ */
+export async function dialBatchLeads(
+  campaignId: string,
+  tenantId: string,
+  deps: DialNextLeadDeps,
+  count = 1,
+): Promise<DialNextLeadResult[]> {
+  const batchSize = Math.max(1, count);
+  const tasks = Array.from({ length: batchSize }).map(() =>
+    dialNextLead(campaignId, tenantId, deps),
+  );
+  return Promise.all(tasks);
+}
+

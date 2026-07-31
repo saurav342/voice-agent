@@ -166,6 +166,8 @@ export function CampaignDetail({ campaign: initial }: Props) {
             <span className="font-mono text-xs">{campaign.fromDid ?? "—"}</span>
             {" · Pacing "}
             {campaign.schedule.pacingCallsPerMinute}/min
+            {" · "}
+            {campaign.schedule.maxConcurrentCalls ?? 1} Parallel
           </p>
         </div>
         <div className="flex gap-2">

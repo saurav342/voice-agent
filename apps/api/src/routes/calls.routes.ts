@@ -207,12 +207,12 @@ callsRouter.post("/:id/analyze", async (req: Request, res: Response) => {
   const analysis = await analyzeCall(transcript.turns);
 
   await db.collection("transcripts").updateOne(
-    { _id: transcript._id },
+    tenantScope(req, { _id: transcript._id }),
     { $set: { summary: analysis.summary, updatedAt: new Date() } }
   );
 
   await db.collection<Call>("calls").updateOne(
-    { _id: call._id },
+    tenantScope(req, { _id: call._id }),
     { $set: { sentiment: analysis.sentiment, updatedAt: new Date() } }
   );
 

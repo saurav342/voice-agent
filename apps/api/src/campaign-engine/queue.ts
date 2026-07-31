@@ -3,7 +3,7 @@ import { Queue, Worker, type JobsOptions } from "bullmq";
 import { getDb } from "../db/connection.js";
 import { createLogger } from "../lib/logger.js";
 import { createVoicelinkProvider } from "../adapters/telephony/voicelink/index.js";
-import { dialNextLead, pacingIntervalMs } from "./runner.js";
+import { dialNextLead, dialBatchLeads, pacingIntervalMs } from "./runner.js";
 import type { Call, Campaign } from "@voiceplatform/shared";
 
 const log = createLogger("campaign-queue");
@@ -71,25 +71,57 @@ export function startDialWorker(): Worker<DialJobData> | null {
     async (job) => {
       const { campaignId, tenantId } = job.data;
       const db = getDb();
-      const result = await dialNextLead(campaignId, tenantId, {
-        telephony: createVoicelinkProvider(),
-        campaigns: db.collection<Campaign>("campaigns"),
-        calls: db.collection<Call>("calls"),
-        dids: db.collection("dids"),
-        wsBaseUrl: process.env.WS_BASE_URL,
+      const campaigns = db.collection<Campaign>("campaigns");
+      const calls = db.collection<Call>("calls");
+
+      const campaign = await campaigns.findOne({ _id: campaignId, tenantId });
+      if (!campaign || campaign.status !== "running") {
+        return { status: "paused", campaign: campaign ?? undefined };
+      }
+
+      const maxConcurrent = campaign.schedule.maxConcurrentCalls ?? 1;
+      const activeCallsCount = await calls.countDocuments({
+        campaignId,
+        status: { $in: ["queued", "ringing", "inprogress"] },
       });
+
+      const slotsToDial = Math.max(1, maxConcurrent - activeCallsCount);
+
+      const results = await dialBatchLeads(
+        campaignId,
+        tenantId,
+        {
+          telephony: createVoicelinkProvider(),
+          campaigns,
+          calls,
+          dids: db.collection("dids"),
+          wsBaseUrl: process.env.WS_BASE_URL,
+        },
+        slotsToDial,
+      );
+
+      const anyDialed = results.some((r) => r.status === "dialed");
+      const latestCampaign = results[results.length - 1]?.campaign ?? campaign;
+
       log.info(
-        { campaignId, status: result.status, cursor: result.campaign.cursor },
+        {
+          campaignId,
+          dialedCount: results.filter((r) => r.status === "dialed").length,
+          cursor: latestCampaign.cursor,
+          activeCallsCount,
+          maxConcurrent,
+        },
         "dial tick",
       );
-      if (result.status === "dialed") {
+
+      if (anyDialed) {
         // Re-enqueue self at the pacing interval.
         const interval = pacingIntervalMs(
-          result.campaign.schedule.pacingCallsPerMinute,
+          latestCampaign.schedule.pacingCallsPerMinute,
         );
         await enqueueNextDial(campaignId, tenantId, interval);
       }
-      return result;
+      return results[0];
     },
     { connection: conn, concurrency: 1 },
   );

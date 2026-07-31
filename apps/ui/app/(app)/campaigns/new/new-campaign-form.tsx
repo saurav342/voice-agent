@@ -27,6 +27,7 @@ export function NewCampaignForm({ agents, dids }: Props) {
   const [agentId, setAgentId] = useState<string>(agents[0]?._id ?? "");
   const [fromDid, setFromDid] = useState<string>("");
   const [pacing, setPacing] = useState<number>(10);
+  const [maxConcurrent, setMaxConcurrent] = useState<number>(5);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +47,7 @@ export function NewCampaignForm({ agents, dids }: Props) {
             startAt: new Date(),
             timezone: "Asia/Kolkata",
             pacingCallsPerMinute: pacing,
+            maxConcurrentCalls: maxConcurrent,
             retries: 0,
           },
         }),
@@ -131,16 +133,30 @@ export function NewCampaignForm({ agents, dids }: Props) {
         </p>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="pacing">Pacing (calls per minute)</Label>
-        <Input
-          id="pacing"
-          type="number"
-          min={1}
-          max={600}
-          value={pacing}
-          onChange={(e) => setPacing(Number(e.target.value) || 1)}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <Label htmlFor="pacing">Pacing (calls per minute)</Label>
+          <Input
+            id="pacing"
+            type="number"
+            min={1}
+            max={600}
+            value={pacing}
+            onChange={(e) => setPacing(Number(e.target.value) || 1)}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="maxConcurrent">Max Parallel Calls (Concurrency)</Label>
+          <Input
+            id="maxConcurrent"
+            type="number"
+            min={1}
+            max={50}
+            value={maxConcurrent}
+            onChange={(e) => setMaxConcurrent(Number(e.target.value) || 1)}
+          />
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

@@ -11,6 +11,7 @@ import type {
 
 import {
   dialNextLead,
+  dialBatchLeads,
   pacingIntervalMs,
 } from "../../src/campaign-engine/runner.js";
 import type {
@@ -282,5 +283,42 @@ describe("dialNextLead", () => {
     const tele = new FakeTelephony();
     await dialNextLead("c10", TENANT, { telephony: tele, campaigns, calls, dids });
     expect(tele.calls[0].websocketUrl).toBeUndefined();
+  });
+
+  it("dials multiple leads concurrently in parallel via dialBatchLeads", async () => {
+    await seedCampaign({
+      _id: "c11",
+      numbers: [
+        { phone: "+919811111111", customData: {} },
+        { phone: "+919811111112", customData: {} },
+        { phone: "+919811111113", customData: {} },
+      ],
+      schedule: {
+        startAt: new Date(),
+        timezone: "Asia/Kolkata",
+        pacingCallsPerMinute: 60,
+        maxConcurrentCalls: 3,
+        retries: 0,
+      },
+    });
+    const tele = new FakeTelephony();
+    const results = await dialBatchLeads(
+      "c11",
+      TENANT,
+      { telephony: tele, campaigns, calls, dids },
+      3,
+    );
+    expect(results).toHaveLength(3);
+    expect(results.filter((r) => r.status === "dialed")).toHaveLength(3);
+    expect(tele.calls).toHaveLength(3);
+    expect(tele.calls.map((c) => c.toNumber)).toEqual([
+      "+919811111111",
+      "+919811111112",
+      "+919811111113",
+    ]);
+
+    const after = await campaigns.findOne({ _id: "c11" });
+    expect(after?.cursor).toBe(3);
+    expect(after?.stats.dialed).toBe(3);
   });
 });
