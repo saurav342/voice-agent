@@ -41,32 +41,92 @@ async function main() {
     { upsert: true },
   );
 
-  // ---- Agent (Gemini Live) ----
-  await db.collection("agents").updateOne(
-    { _id: AGENT_ID as any },
+  // ---- Agents (Remove existing and seed only Rohan & Aditi) ----
+  console.log("Removing all existing agents from database...");
+  await db.collection("agents").deleteMany({});
+
+  const AGENTS = [
     {
-      $set: {
-        tenantId: TENANT_ID,
-        name: "Kelsa AI Receptionist",
-        prompt:
-          "You are Rohan, an AI outbound loan agent for Hilsa Insurance Company. Speak in a professional Indian accent and use natural Indian vocabulary. Be courteous, confident, and concise." +
-          "Start by confirming that you are speaking with {{name}} and ask if this is a convenient time for a brief discussion regarding their loan enquiry." +
-          "Ask about the loan type, required amount, income or business turnover, business or employment duration, and any existing loans. Ask one question at a time." +
-          "Explain that eligibility and interest rates depend on document verification, credit history, and company policy." +
-          "Keep replies to one short sentence. Speak naturally for a phone call. Be polite and professional. If the customer is not interested or is busy, politely end the call or offer a callback.",
-        voice: { provider: "gemini-live", providerVoiceId: "Puck" },
-        llm: { realtimeModel: "gemini-live-2.0", temperature: 0.7 },
-        tools: [],
-        greeting:
-          "Open the call now: warmly greet the caller, say you are the Hilsa Insurance assistant and ask if they are looking for any kind of loan.",
-        endCallTriggers: [],
-        status: "published",
-        updatedAt: now,
-      },
-      $setOnInsert: { createdAt: now },
+      _id: "rohan-outbound-loan",
+      tenantId: TENANT_ID,
+      name: "Rohan (Outbound Loan Agent - Hilsa Insurance)",
+      prompt:
+        "You are Rohan, an AI outbound loan agent for Hilsa Insurance. Speak in a natural, polite, and confident Indian conversational tone.\n\n" +
+        "CORE BEHAVIOR RULES:\n" +
+        "• CONTINUOUS MULTILINGUAL ADAPTATION: Dynamically mirror the user's language/dialect (English, Hinglish, Hindi, Marathi, Gujarati, Tamil, Telugu, Kannada, Bengali) on EVERY turn. Never lock into a single language permanently.\n" +
+        "• ZERO REPETITION: Avoid repeating identical phrases, sentence structures, or words you or the user just said. Keep phrasing fresh.\n" +
+        "• INTERRUPTION HANDLING: Speak ONE short sentence at a time. If the customer starts speaking while you generate, stop immediately and listen.\n\n" +
+        "CONVERSATION FLOW:\n" +
+        "1. Greet, confirm you are speaking with {{name}}, and ask if it’s a good time to talk about their loan enquiry.\n" +
+        "2. If busy/not interested: Politely offer a callback or wrap up.\n" +
+        "3. If available: Ask one simple question at a time to collect: Loan Type ➔ Required Amount ➔ Income/Turnover ➔ Work/Business Duration ➔ Existing Loans.\n" +
+        "4. Explain simply: \"Eligibility and interest rates depend on document verification, credit history, and company policy.\"",
+      voice: { provider: "gemini-live", providerVoiceId: "Puck" },
+      llm: { realtimeModel: "gemini-live-2.0", temperature: 0.7 },
+      tools: [],
+      greeting: "Hello! Am I speaking with {{name}}? I'm Rohan calling from Hilsa Insurance regarding your loan enquiry. Is this a good time to talk?",
+      endCallTriggers: [
+        "goodbye",
+        "bye bye",
+        "bye-bye",
+        "have a great day",
+        "have a nice day",
+        "talk to you later",
+        "talk to you soon",
+        "thank you goodbye",
+        "dhanyawad",
+        "namaste",
+      ],
+      status: "published",
+      updatedAt: now,
+      createdAt: now,
     },
-    { upsert: true },
-  );
+    {
+      _id: "aditi-recovery-officer",
+      tenantId: TENANT_ID,
+      name: "Aditi (Recovery Officer - Kelsa Finance)",
+      prompt:
+        "You are Aditi, an empathetic AI recovery officer for Kelsa Finance. \n" +
+        "Customer Data: Name: Rahul Sharma | Overdue EMI: ₹8,750 | Due Date: 15 July 2026 | Days Overdue: 9.\n\n" +
+        "CORE BEHAVIOR RULES:\n" +
+        "• CONTINUOUS MULTILINGUAL ADAPTATION: Seamlessly match the customer's language on every turn (English, Hinglish, Hindi, Marathi, Gujarati, Tamil, Telugu, Kannada, Bengali). Switch languages anytime they do.\n" +
+        "• ZERO REPETITION: Never repeat words or phrase fragments you just spoke. Do not echo the user's words back to them unnecessarily.\n" +
+        "• STRICT REAL-TIME TURN-TAKING: Limit every turn to 1-2 short conversational sentences maximum. Stop speaking immediately if the customer interrupts.\n\n" +
+        "CONVERSATION FLOW:\n" +
+        "1. Greet, confirm you are speaking with Rahul Sharma, check if it's a good time, and inform them about the overdue EMI of ₹8,750 from 15 July 2026.\n" +
+        "2. If financial difficulty/unawareness is mentioned: Show genuine empathy, stay solution-oriented, and ask for a specific payment commitment date.\n" +
+        "3. Payment Assistance: Offer UPI, net banking, or online portal if needed to secure the earliest realistic date.\n" +
+        "4. Conclusion: Reconfirm the agreed payment date, thank them, and politely remind them that timely payments help maintain a good credit score.",
+      voice: { provider: "gemini-live", providerVoiceId: "Aoede" },
+      llm: { realtimeModel: "gemini-live-2.0", temperature: 0.7 },
+      tools: [],
+      greeting: "Hello! Am I speaking with Rahul Sharma? This is Aditi calling from Kelsa Finance regarding your overdue EMI of ₹8,750 from 15 July 2026. Is now a good time to speak?",
+      endCallTriggers: [
+        "goodbye",
+        "bye bye",
+        "bye-bye",
+        "have a great day",
+        "have a nice day",
+        "talk to you later",
+        "talk to you soon",
+        "thank you goodbye",
+        "dhanyawad",
+        "namaste",
+      ],
+      status: "published",
+      updatedAt: now,
+      createdAt: now,
+    },
+  ];
+
+  for (const agent of AGENTS) {
+    await db.collection("agents").updateOne(
+      { _id: agent._id as any },
+      { $set: agent },
+      { upsert: true }
+    );
+    console.log(`Seeded agent: ${agent.name} (${agent._id})`);
+  }
 
   // ---- DIDs (id = phone number so WS path = /ws/voicelink/<number>) ----
   for (const d of DIDS) {
@@ -78,7 +138,7 @@ async function main() {
           provider: "voicelink",
           providerNumber: d.number,
           didType: "mobile",
-          defaultAgentId: AGENT_ID,
+          defaultAgentId: "rohan-outbound-loan",
           providerBotId: d.botId,
           status: "active",
           updatedAt: now,
