@@ -159,10 +159,49 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
   const [directionFilter, setDirectionFilter] = useState<"all" | "in" | "out">("all");
   const [statusFilter, setStatusFilter] = useState<Set<Call["status"]>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   React.useEffect(() => {
     setCallsList(initialCalls);
   }, [initialCalls]);
+
+  const handleReanalyze = useCallback(async (callId: string) => {
+    setIsReanalyzing(true);
+    try {
+      const res = await fetch(`/api/calls/${callId}/analyze`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok) {
+          setSelectedCall((prev) =>
+            prev && prev._id === callId
+              ? {
+                  ...prev,
+                  sentiment: data.sentiment,
+                  transcript: prev.transcript
+                    ? { ...prev.transcript, summary: data.summary }
+                    : {
+                        _id: "",
+                        callId,
+                        tenantId: prev.tenantId,
+                        turns: [],
+                        summary: data.summary,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                      },
+                }
+              : prev
+          );
+          setCallsList((prev) =>
+            prev.map((c) => (c._id === callId ? { ...c, sentiment: data.sentiment } : c))
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Failed to re-analyze call:", err);
+    } finally {
+      setIsReanalyzing(false);
+    }
+  }, []);
 
   const handleKillCall = useCallback(async (callId: string) => {
     try {
@@ -792,12 +831,37 @@ export function CallsTable({ initialCalls }: CallsTableProps) {
                   </div>
                 </div>
 
-                {selectedCall.transcript?.summary && (
+                {selectedCall.transcript && (
                   <div className="border-t pt-4 border-[var(--c-border)]">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--c-text-dim)] mb-2">AI Summary</h4>
-                    <p className="text-xs text-foreground bg-[var(--c-section-bg)] p-3 rounded-xl border border-[var(--c-border)] leading-relaxed">
-                      {selectedCall.transcript.summary}
-                    </p>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--c-text-dim)]">AI Summary</h4>
+                      {selectedCall.transcript.turns && selectedCall.transcript.turns.length > 0 && (
+                        <button
+                          type="button"
+                          disabled={isReanalyzing}
+                          onClick={() => handleReanalyze(selectedCall._id)}
+                          className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <svg className={`w-3 h-3 ${isReanalyzing ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                          </svg>
+                          {isReanalyzing ? "Analyzing..." : "Retry Analysis"}
+                        </button>
+                      )}
+                    </div>
+                    {selectedCall.transcript.summary ? (
+                      <p className={`text-xs p-3 rounded-xl border leading-relaxed ${
+                        selectedCall.transcript.summary.startsWith("Error:")
+                          ? "bg-red-500/10 text-red-600 border-red-500/20"
+                          : "bg-[var(--c-section-bg)] text-foreground border-[var(--c-border)]"
+                      }`}>
+                        {selectedCall.transcript.summary}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[var(--c-text-secondary)] italic bg-[var(--c-section-bg)] p-3 rounded-xl border border-[var(--c-border)]">
+                        No summary available yet.
+                      </p>
+                    )}
                   </div>
                 )}
 

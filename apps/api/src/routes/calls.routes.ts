@@ -9,6 +9,7 @@ import { requireTenant, tenantScope } from "../middleware/tenant.js";
 import { createVoicelinkProvider } from "../adapters/telephony/voicelink/index.js";
 import { createLogger } from "../lib/logger.js";
 import { killCallSession, killAgentCallSessions } from "../voice-engine/session-manager.js";
+import { analyzeCall } from "../lib/analyzer.js";
 
 const log = createLogger("calls");
 
@@ -179,6 +180,48 @@ callsRouter.get("/:id", async (req: Request, res: Response) => {
   res.json({
     ...call,
     transcript: transcript || null,
+  });
+});
+
+/**
+ * POST /calls/:id/analyze — re-trigger AI summary and sentiment analysis for a call.
+ */
+callsRouter.post("/:id/analyze", async (req: Request, res: Response) => {
+  const queryId = ObjectId.isValid(req.params.id)
+    ? { $in: [req.params.id, new ObjectId(req.params.id)] }
+    : req.params.id;
+
+  const db = getDb();
+  const call = await db.collection<Call>("calls").findOne(tenantScope(req, { _id: queryId as any }));
+  if (!call) {
+    res.status(404).json({ error: "Call not found" });
+    return;
+  }
+
+  const transcript = await db.collection("transcripts").findOne({ callId: queryId as any });
+  if (!transcript || !Array.isArray(transcript.turns) || transcript.turns.length === 0) {
+    res.status(400).json({ error: "No transcript turns available to analyze" });
+    return;
+  }
+
+  const analysis = await analyzeCall(transcript.turns);
+
+  await db.collection("transcripts").updateOne(
+    { _id: transcript._id },
+    { $set: { summary: analysis.summary, updatedAt: new Date() } }
+  );
+
+  await db.collection<Call>("calls").updateOne(
+    { _id: call._id },
+    { $set: { sentiment: analysis.sentiment, updatedAt: new Date() } }
+  );
+
+  log.info({ callId: call._id, sentiment: analysis.sentiment }, "Call manually re-analyzed via POST /calls/:id/analyze");
+
+  res.json({
+    ok: true,
+    summary: analysis.summary,
+    sentiment: analysis.sentiment,
   });
 });
 
