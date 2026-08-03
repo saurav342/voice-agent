@@ -246,9 +246,15 @@ export class CallSession {
     if (this.started) return;
     this.started = true;
 
-    // Dynamically interpolate variables in system prompt before connect
-    if (this.cfg.provider.updateSystemPrompt && this.cfg.systemPrompt) {
-      const interpolatedPrompt = interpolateTemplate(this.cfg.systemPrompt, this.customParameters);
+    // Dynamically interpolate variables in system prompt & greeting before connect
+    let rawPrompt = this.cfg.systemPrompt || "";
+    if (this.cfg.greeting) {
+      const interpolatedGreeting = interpolateTemplate(this.cfg.greeting, this.customParameters);
+      rawPrompt += `\n\nCRITICAL OPENING GREETING DIRECTIVE:\nAs soon as the call connects, you MUST speak first. Your very first spoken words to the customer MUST be: "${interpolatedGreeting}"\nDo not wait for the customer to speak. Speak this exact greeting out loud to the customer immediately.`;
+    }
+
+    if (this.cfg.provider.updateSystemPrompt && rawPrompt) {
+      const interpolatedPrompt = interpolateTemplate(rawPrompt, this.customParameters);
       this.cfg.provider.updateSystemPrompt(interpolatedPrompt);
     }
 
@@ -349,8 +355,9 @@ export class CallSession {
     this.startPacer();
 
     if (this.cfg.greeting) {
-      const interpolatedGreeting = interpolateTemplate(this.cfg.greeting, this.customParameters);
-      this.cfg.provider.sendText(interpolatedGreeting);
+      this.cfg.provider.sendText(
+        "[System directive: The call has connected. Speak your opening greeting to the customer out loud now.]"
+      );
     }
   }
 
@@ -636,15 +643,26 @@ export class CallSession {
         { $set: { summary: analysis.summary, updatedAt: new Date() } }
       );
 
-      // 2. Update the call record with the resolved sentiment
+      // 2. Update the call record with the resolved sentiment and outcomeTag
       await db.collection<Call>("calls").updateOne(
         { _id: this.cfg.callId },
-        { $set: { sentiment: analysis.sentiment, updatedAt: new Date() } }
+        {
+          $set: {
+            sentiment: analysis.sentiment,
+            outcomeTag: analysis.outcomeTag,
+            updatedAt: new Date(),
+          },
+        }
       );
 
       log.info(
-        { callId: this.cfg.callId, sentiment: analysis.sentiment, hasSummary: !!analysis.summary },
-        "call analysis (gist + sentiment) stored successfully"
+        {
+          callId: this.cfg.callId,
+          sentiment: analysis.sentiment,
+          outcomeTag: analysis.outcomeTag,
+          hasSummary: !!analysis.summary,
+        },
+        "call analysis (gist + sentiment + outcomeTag) stored successfully"
       );
     } catch (err) {
       log.error({ err, callId: this.cfg.callId }, "failed to analyze call details");

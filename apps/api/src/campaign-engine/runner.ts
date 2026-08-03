@@ -56,6 +56,17 @@ export async function dialNextLead(
   if (campaign.status !== "running") {
     return { status: "paused", campaign };
   }
+
+  // RBI Compliance Check for Outbound Campaigns (8 AM - 7 PM IST window)
+  if (process.env.BYPASS_COMPLIANCE_HOURS !== "true") {
+    const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const hour = nowIST.getHours();
+    if (hour < 8 || hour >= 19) {
+      log.warn({ campaignId, hour }, "Campaign dialer paused: outside RBI permitted hours (8 AM - 7 PM IST)");
+      return { status: "paused", campaign };
+    }
+  }
+
   if (!campaign.fromDid) {
     return { status: "no-did", campaign };
   }
@@ -150,6 +161,7 @@ export async function dialNextLead(
       durationSec: 0,
       status: "failed",
       sentiment: "unknown",
+      outcomeTag: "UNKNOWN",
       costCredits: 0,
       costCogs: 0,
       createdAt: now(),
@@ -172,6 +184,7 @@ export async function dialNextLead(
     durationSec: 0,
     status: "ringing",
     sentiment: "unknown",
+    outcomeTag: "UNKNOWN",
     costCredits: 0,
     costCogs: 0,
     createdAt: now(),

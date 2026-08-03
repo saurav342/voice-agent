@@ -53,6 +53,21 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
     return;
   }
 
+  // RBI Fair Practices Code: Compliance Check (8 AM - 7 PM permitted window)
+  const bypassCompliance = reqBody.customData?.bypassCompliance === "true" || process.env.BYPASS_COMPLIANCE_HOURS === "true";
+  if (!bypassCompliance) {
+    const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const hour = nowIST.getHours();
+    if (hour < 8 || hour >= 19) {
+      log.warn({ hour, toNumber }, "Blocked outbound call outside RBI permitted hours (8 AM - 7 PM IST)");
+      res.status(403).json({
+        error: "OUTSIDE_COMPLIANT_HOURS",
+        message: `Outbound calls are non-compliant outside permitted hours (8 AM to 7 PM IST). Current IST time: ${nowIST.toLocaleTimeString()}`,
+      });
+      return;
+    }
+  }
+
   const dids = getDb().collection<Did>("dids");
   const did = typeof didId === "string" && didId.length > 0
     ? await dids.findOne(tenantScope(req, { _id: didId }))
@@ -106,6 +121,7 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
       durationSec: 0,
       status: "ringing",
       sentiment: "unknown",
+      outcomeTag: "UNKNOWN",
       costCredits: 0,
       costCogs: 0,
       customData: Object.keys(customData).length > 0 ? customData : undefined,

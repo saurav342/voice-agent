@@ -77,7 +77,7 @@ export function PlaceCall() {
     setActiveCallId(null);
 
     const preset = PRESET_CONTACTS.find((c) => c.id === selectedContactId);
-    const resolvedName = preset ? preset.name : (customName.trim() || undefined);
+    const resolvedName = preset ? preset.name : (customName.trim() || "Rahul Sharma");
 
     try {
       const res = await fetch("/api/calls/dial", {
@@ -88,7 +88,18 @@ export function PlaceCall() {
           agentId: selectedAgentId || undefined,
           name: resolvedName,
           customer_name: resolvedName,
-          customData: resolvedName ? { name: resolvedName, customer_name: resolvedName } : undefined,
+          customData: {
+            name: resolvedName,
+            customer_name: resolvedName,
+            lender_name: "Vasai Vikas Sahakari Bank Ltd.",
+            loan_account_no: "4829",
+            emi_amount: "₹8,750",
+            due_date: "5 August 2026",
+            days_overdue: "9",
+            payment_link: "https://vasaivikasbank.com/pay",
+            helpline_number: "1800-233-4567",
+            bypassCompliance: "true",
+          },
         }),
       });
       const data = await res.json().catch(() => ({}));

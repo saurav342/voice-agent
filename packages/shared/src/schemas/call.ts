@@ -9,6 +9,17 @@ export const CallStatus = z.enum([
   "failed",
 ]);
 export const Sentiment = z.enum(["positive", "neutral", "negative", "unknown"]);
+export const OutcomeTag = z.enum([
+  "PAID_CONFIRMED",
+  "PROMISE_TO_PAY",
+  "DISPUTED",
+  "HARDSHIP",
+  "NO_ANSWER",
+  "OPT_OUT",
+  "WRONG_NUMBER",
+  "CALLBACK_REQUESTED",
+  "UNKNOWN",
+]);
 
 export const Call = z.object({
   _id: z.string(),
@@ -26,6 +37,7 @@ export const Call = z.object({
   recordingUrl: z.string().url().optional(),
   transcriptId: z.string().optional(),
   sentiment: Sentiment.default("unknown"),
+  outcomeTag: OutcomeTag.default("UNKNOWN"),
   costCredits: z.number().nonnegative().default(0),
   costCogs: z.number().nonnegative().default(0),
   customData: z.record(z.string()).optional(),
@@ -36,6 +48,7 @@ export const Call = z.object({
 export type CallDirection = z.infer<typeof CallDirection>;
 export type CallStatus = z.infer<typeof CallStatus>;
 export type Sentiment = z.infer<typeof Sentiment>;
+export type OutcomeTag = z.infer<typeof OutcomeTag>;
 export type Call = z.infer<typeof Call>;
 
 export function denormalizeProviderCallId(id: string): string {
