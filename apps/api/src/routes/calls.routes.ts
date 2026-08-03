@@ -58,14 +58,14 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
   if (!bypassCompliance) {
     const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
     const hour = nowIST.getHours();
-    if (hour < 8 || hour >= 19) {
-      log.warn({ hour, toNumber }, "Blocked outbound call outside RBI permitted hours (8 AM - 7 PM IST)");
-      res.status(403).json({
-        error: "OUTSIDE_COMPLIANT_HOURS",
-        message: `Outbound calls are non-compliant outside permitted hours (8 AM to 7 PM IST). Current IST time: ${nowIST.toLocaleTimeString()}`,
-      });
-      return;
-    }
+    // if (hour < 8 || hour >= 19) {
+    log.warn({ hour, toNumber }, "Blocked outbound call outside RBI permitted hours (8 AM - 7 PM IST)");
+    res.status(403).json({
+      error: "OUTSIDE_COMPLIANT_HOURS",
+      message: `Outbound calls are non-compliant outside permitted hours (8 AM to 7 PM IST). Current IST time: ${nowIST.toLocaleTimeString()}`,
+    });
+    return;
+    // }
   }
 
   const dids = getDb().collection<Did>("dids");
