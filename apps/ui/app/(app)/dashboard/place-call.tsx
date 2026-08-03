@@ -185,9 +185,9 @@ export function PlaceCall() {
         Select a contact preset or select Custom to enter any 10-digit mobile number. The Vaani AI agent will call immediately.
       </p>
 
-      <div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-end">
+      <div className="flex flex-wrap items-end gap-3.5">
         {agents.length > 0 && (
-          <div className="w-full sm:w-60 relative shrink-0">
+          <div className="flex-1 min-w-[200px] sm:min-w-[220px] max-w-full relative">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--c-text-secondary)] mb-1">
               Voice Agent
             </label>
@@ -210,7 +210,7 @@ export function PlaceCall() {
         )}
 
         {/* Contact Preset Dropdown */}
-        <div className="w-full sm:w-64 relative shrink-0">
+        <div className="flex-1 min-w-[200px] sm:min-w-[220px] max-w-full relative">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--c-text-secondary)] mb-1">
             Recipient Contact
           </label>
@@ -234,7 +234,7 @@ export function PlaceCall() {
         </div>
 
         {/* Phone Input */}
-        <div className="flex-1 relative min-w-[200px]">
+        <div className="flex-1 min-w-[200px] sm:min-w-[220px] max-w-full relative">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--c-text-secondary)] mb-1">
             Phone Number
           </label>
@@ -263,7 +263,7 @@ export function PlaceCall() {
 
         {/* Custom Context Name Input if Custom selected */}
         {selectedContactId === "custom" && (
-          <div className="w-full sm:w-48 relative shrink-0">
+          <div className="flex-1 min-w-[180px] sm:min-w-[200px] max-w-full relative">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--c-text-secondary)] mb-1">
               Context Name (Optional)
             </label>
@@ -281,12 +281,12 @@ export function PlaceCall() {
           </div>
         )}
 
-        <div className="flex gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 sm:ml-auto pt-1 sm:pt-0">
           <button
             id="quick-dial-call-btn"
             onClick={call}
             disabled={status.kind === "calling"}
-            className="h-12 px-7 rounded-xl text-sm font-bold text-white transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed hover:scale-105 active:scale-95 shrink-0"
+            className="w-full sm:w-auto h-12 px-7 rounded-xl text-sm font-bold text-white transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed hover:scale-105 active:scale-95 shrink-0 flex items-center justify-center gap-2"
             style={{
               background:
                 status.kind === "calling"
@@ -318,7 +318,7 @@ export function PlaceCall() {
               id="quick-dial-kill-btn"
               onClick={killCall}
               title="Immediately terminate the active agent call"
-              className="h-12 px-5 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-rose-600/30 animate-pulse"
+              className="w-full sm:w-auto h-12 px-5 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-rose-600/30 animate-pulse shrink-0"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
