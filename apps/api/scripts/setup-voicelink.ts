@@ -34,33 +34,49 @@ async function vl<T = any>(method: string, path: string, body?: unknown): Promis
 }
 
 async function main() {
-  const clients = await vl<{ data: { id: number; name: string }[] }>("GET", "/v1/reseller/clients");
-  const clientId = clients.data?.[0]?.id;
-  if (!clientId) throw new Error("no client found on this reseller account");
-  console.log(`client: ${clients.data[0].name} (${clientId})`);
+  const clients = await vl<{ data: { id: number; name: string; dids?: { did_id: number; did_number: number; user_status_label: string }[] }[] }>("GET", "/v1/reseller/clients");
+  const client = clients.data?.[0];
+  if (!client) throw new Error("no client found on this reseller account");
+  console.log(`client: ${client.name} (${client.id})`);
 
-  const routing = await vl<{ data: { id: number; did_number: number }[] }>("GET", "/v1/call-routing/list");
-  if (!routing.data?.length) {
-    console.error("No call-routing records. Assign a DID to your client in the VoiceLink dashboard first.");
+  const activeDids = (client.dids || []).filter(d => d.user_status_label !== "Expired");
+  if (!activeDids.length) {
+    console.error("No active DIDs found for client.");
     process.exit(1);
   }
 
-  for (const r of routing.data) {
-    const num = String(r.did_number);
+  const routingRes = await vl<{ data: { id: number; did_number: number }[] }>("GET", "/v1/call-routing/list");
+  const existingRoutings = routingRes.data || [];
+
+  for (const did of activeDids) {
+    const num = String(did.did_number);
     const bot = await vl<{ data: { id: number } }>("POST", "/v1/websocket-bot/create", {
       bot_name: `VaaniX AI - ${num}`,
       websocket_url: `${WS}/ws/voicelink/${num}`,
       webhook_url: `${HTTP}/webhooks/voicelink`,
       status: 1,
-      client_id: clientId,
+      client_id: client.id,
     });
     const botId = bot.data?.id;
-    await vl("POST", `/v1/call-routing/update/${r.id}`, {
-      for_inbound_call: 3, inbound_websocket_bot_id: botId,
-      for_outbound_call: 3, outbound_websocket_bot_id: botId,
-      status: 1,
-    });
-    console.log(`wired ${num} -> websocket bot ${botId} (inbound + outbound)`);
+
+    const existingRouting = existingRoutings.find(r => String(r.did_number) === num);
+    if (existingRouting) {
+      await vl("POST", `/v1/call-routing/update/${existingRouting.id}`, {
+        for_inbound_call: 3, inbound_websocket_bot_id: botId,
+        for_outbound_call: 3, outbound_websocket_bot_id: botId,
+        status: 1,
+      });
+      console.log(`Updated routing for ${num} -> websocket bot ${botId}`);
+    } else {
+      await vl("POST", "/v1/call-routing/create", {
+        did_number: num,
+        for_inbound_call: 3, inbound_websocket_bot_id: botId,
+        for_outbound_call: 3, outbound_websocket_bot_id: botId,
+        status: 1,
+        client_id: client.id,
+      });
+      console.log(`Created routing for ${num} -> websocket bot ${botId}`);
+    }
   }
   console.log("Done. Now run scripts/seed.ts, then call from the dashboard.");
 }

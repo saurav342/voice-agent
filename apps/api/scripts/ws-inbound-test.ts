@@ -4,11 +4,11 @@
  * audio frames back (the agent's greeting). No PSTN, no telephony fees.
  *
  *   npx tsx scripts/ws-inbound-test.ts [didId] [wsBase]
- *   default didId=919484956633  wsBase=ws://localhost:4000
+ *   default didId=919484957300  wsBase=ws://localhost:4000
  */
 import WebSocket from "ws";
 
-const didId = process.argv[2] || "919484956633";
+const didId = process.argv[2] || "919484957300";
 const wsBase = process.argv[3] || "ws://localhost:4000";
 const url = `${wsBase}/ws/voicelink/${didId}`;
 
