@@ -126,6 +126,12 @@ export function mountCallWsRouter(
             }
           }
         }
+
+        if (callDoc.customData) {
+          for (const [k, v] of Object.entries(callDoc.customData)) {
+            customParameters[k] = String(v);
+          }
+        }
       } else if (callIdParam) {
         log.warn(
           { callId: callIdParam, didId },

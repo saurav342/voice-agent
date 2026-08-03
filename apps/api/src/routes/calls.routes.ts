@@ -25,8 +25,29 @@ callsRouter.use(requireAuth, requireTenant);
  * normalized to national + country_code inside the provider.
  */
 callsRouter.post("/dial", async (req: Request, res: Response) => {
-  const toNumber = String((req.body as { toNumber?: unknown })?.toNumber ?? "").trim();
-  const didId = (req.body as { didId?: unknown })?.didId;
+  const reqBody = (req.body as {
+    toNumber?: unknown;
+    didId?: unknown;
+    agentId?: unknown;
+    name?: string;
+    customer_name?: string;
+    customData?: Record<string, unknown>;
+  }) || {};
+  const toNumber = String(reqBody.toNumber ?? "").trim();
+  const didId = reqBody.didId;
+  const name = reqBody.name || reqBody.customer_name;
+  const customData: Record<string, string> = {};
+
+  if (reqBody.customData && typeof reqBody.customData === "object") {
+    for (const [k, v] of Object.entries(reqBody.customData)) {
+      if (v !== undefined && v !== null) customData[k] = String(v);
+    }
+  }
+  if (name) {
+    customData.name = String(name);
+    customData.customer_name = String(name);
+  }
+
   if (!/^[0-9+]{6,15}$/.test(toNumber)) {
     res.status(400).json({ error: "toNumber must be 6-15 digits (with optional leading +)" });
     return;
@@ -41,7 +62,7 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
     return;
   }
 
-  const reqAgentId = (req.body as { agentId?: unknown })?.agentId;
+  const reqAgentId = reqBody.agentId;
   const targetAgentId = typeof reqAgentId === "string" && reqAgentId.length > 0
     ? reqAgentId
     : (did.defaultAgentId || "pending");
@@ -67,6 +88,7 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
         callId,
         agentId: targetAgentId,
         tenantId: req.tenantId,
+        ...customData,
       }),
     });
 
@@ -86,12 +108,13 @@ callsRouter.post("/dial", async (req: Request, res: Response) => {
       sentiment: "unknown",
       costCredits: 0,
       costCogs: 0,
+      customData: Object.keys(customData).length > 0 ? customData : undefined,
       createdAt: now,
       updatedAt: now,
     };
     await db.collection<Call>("calls").insertOne(call);
 
-    log.info({ to: toNumber, did: did.providerNumber, providerCallId: handle.providerCallId, callId }, "manual dial placed");
+    log.info({ to: toNumber, did: did.providerNumber, providerCallId: handle.providerCallId, callId, name }, "manual dial placed");
     res.status(201).json({ ok: true, providerCallId: handle.providerCallId, callId, to: toNumber, from: did.providerNumber });
   } catch (err) {
     log.error({ err, to: toNumber }, "manual dial failed");

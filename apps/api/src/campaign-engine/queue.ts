@@ -3,7 +3,7 @@ import { Queue, Worker, type JobsOptions } from "bullmq";
 import { getDb } from "../db/connection.js";
 import { createLogger } from "../lib/logger.js";
 import { createVoicelinkProvider } from "../adapters/telephony/voicelink/index.js";
-import { dialNextLead, dialBatchLeads, pacingIntervalMs } from "./runner.js";
+import { dialBatchLeads, pacingIntervalMs } from "./runner.js";
 import type { Call, Campaign } from "@voiceplatform/shared";
 
 const log = createLogger("campaign-queue");

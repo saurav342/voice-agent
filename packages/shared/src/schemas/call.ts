@@ -28,6 +28,7 @@ export const Call = z.object({
   sentiment: Sentiment.default("unknown"),
   costCredits: z.number().nonnegative().default(0),
   costCogs: z.number().nonnegative().default(0),
+  customData: z.record(z.string()).optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });

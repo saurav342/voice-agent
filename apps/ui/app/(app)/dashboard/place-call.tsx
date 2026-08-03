@@ -5,8 +5,31 @@ import type { Agent } from "@voiceplatform/shared";
 
 type Status = { kind: "idle" | "calling" | "ok" | "err"; msg?: string };
 
+type PresetContact = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
+const PRESET_CONTACTS: PresetContact[] = [
+  { id: "ashay-raut", name: "Ashay Raut", phone: "9850587374" },
+  { id: "dilip-thakur", name: "Dilip Thakur", phone: "8551917968" },
+  { id: "shrish-raut", name: "Shrish Raut", phone: "9850532160" },
+  { id: "abhay-chaudhari", name: "Abhay Chaudhari", phone: "9326475110" },
+];
+
+function formatPhoneDisplay(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+  return phone;
+}
+
 export function PlaceCall() {
-  const [number, setNumber] = useState("0");
+  const [selectedContactId, setSelectedContactId] = useState<string>("ashay-raut");
+  const [number, setNumber] = useState<string>("9850587374");
+  const [customName, setCustomName] = useState<string>("");
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -27,9 +50,35 @@ export function PlaceCall() {
       .catch(() => { });
   }, []);
 
+  function handleContactSelect(contactId: string) {
+    setSelectedContactId(contactId);
+    if (contactId === "custom") {
+      return;
+    }
+    const match = PRESET_CONTACTS.find((c) => c.id === contactId);
+    if (match) {
+      setNumber(match.phone);
+    }
+  }
+
+  function handleNumberChange(val: string) {
+    setNumber(val);
+    const cleanVal = val.replace(/\D/g, "");
+    const match = PRESET_CONTACTS.find((c) => c.phone.replace(/\D/g, "") === cleanVal);
+    if (match) {
+      setSelectedContactId(match.id);
+    } else {
+      setSelectedContactId("custom");
+    }
+  }
+
   async function call() {
     setStatus({ kind: "calling" });
     setActiveCallId(null);
+
+    const preset = PRESET_CONTACTS.find((c) => c.id === selectedContactId);
+    const resolvedName = preset ? preset.name : (customName.trim() || undefined);
+
     try {
       const res = await fetch("/api/calls/dial", {
         method: "POST",
@@ -37,6 +86,9 @@ export function PlaceCall() {
         body: JSON.stringify({
           toNumber: number.trim(),
           agentId: selectedAgentId || undefined,
+          name: resolvedName,
+          customer_name: resolvedName,
+          customData: resolvedName ? { name: resolvedName, customer_name: resolvedName } : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -47,7 +99,8 @@ export function PlaceCall() {
       if (data.callId) {
         setActiveCallId(data.callId);
       }
-      setStatus({ kind: "ok", msg: `Calling ${data.from} → ${data.to}. Pick up your phone.` });
+      const recipientLabel = resolvedName ? `${resolvedName} (${data.to})` : data.to;
+      setStatus({ kind: "ok", msg: `Calling ${data.from} → ${recipientLabel}. Pick up your phone.` });
     } catch (e) {
       setStatus({ kind: "err", msg: (e as Error).message });
     }
@@ -118,12 +171,15 @@ export function PlaceCall() {
       <div className="h-px bg-[var(--c-border)] mb-5" />
 
       <p className="text-xs text-[var(--c-text-secondary)] mb-4">
-        Enter a 10-digit mobile number. For India, enter (e.g. 0 or 9307512816). The Vaani AI agent will call immediately.
+        Select a contact preset or select Custom to enter any 10-digit mobile number. The Vaani AI agent will call immediately.
       </p>
 
-      <div className="flex flex-col sm:flex-row gap-3 max-w-2xl">
+      <div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-end">
         {agents.length > 0 && (
-          <div className="w-full sm:w-56 relative shrink-0">
+          <div className="w-full sm:w-60 relative shrink-0">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--c-text-secondary)] mb-1">
+              Voice Agent
+            </label>
             <select
               value={selectedAgentId}
               onChange={(e) => setSelectedAgentId(e.target.value)}
@@ -142,27 +198,77 @@ export function PlaceCall() {
           </div>
         )}
 
-        <div className="flex-1 relative">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--brand)]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-              <line x1="12" y1="18" x2="12.01" y2="18" />
-            </svg>
-          </span>
-          <input
-            value={number}
-            onChange={(e) => setNumber(e.target.value)}
-            placeholder="Enter phone number"
-            inputMode="tel"
-            id="quick-dial-number"
-            className="w-full h-12 pl-10 pr-4 rounded-xl text-sm font-mono border text-foreground focus:outline-none focus:ring-2 transition-all shadow-inner"
+        {/* Contact Preset Dropdown */}
+        <div className="w-full sm:w-64 relative shrink-0">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--c-text-secondary)] mb-1">
+            Recipient Contact
+          </label>
+          <select
+            value={selectedContactId}
+            onChange={(e) => handleContactSelect(e.target.value)}
+            className="w-full h-12 px-3 rounded-xl text-xs font-semibold border text-foreground focus:outline-none focus:ring-2 transition-all shadow-inner"
             style={{
               background: "var(--c-input-bg)",
               borderColor: "var(--c-border)",
-              "--tw-ring-color": "var(--brand)",
-            } as React.CSSProperties}
-          />
+            }}
+            id="quick-dial-contact-select"
+          >
+            {PRESET_CONTACTS.map((c) => (
+              <option key={c.id} value={c.id}>
+                👤 {c.name} ({formatPhoneDisplay(c.phone)})
+              </option>
+            ))}
+            <option value="custom">✏️ Custom</option>
+          </select>
         </div>
+
+        {/* Phone Input */}
+        <div className="flex-1 relative min-w-[200px]">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--c-text-secondary)] mb-1">
+            Phone Number
+          </label>
+          <div className="relative">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--brand)]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
+            </span>
+            <input
+              value={number}
+              onChange={(e) => handleNumberChange(e.target.value)}
+              placeholder="Enter phone number"
+              inputMode="tel"
+              id="quick-dial-number"
+              className="w-full h-12 pl-10 pr-4 rounded-xl text-sm font-mono border text-foreground focus:outline-none focus:ring-2 transition-all shadow-inner"
+              style={{
+                background: "var(--c-input-bg)",
+                borderColor: "var(--c-border)",
+                "--tw-ring-color": "var(--brand)",
+              } as React.CSSProperties}
+            />
+          </div>
+        </div>
+
+        {/* Custom Context Name Input if Custom selected */}
+        {selectedContactId === "custom" && (
+          <div className="w-full sm:w-48 relative shrink-0">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--c-text-secondary)] mb-1">
+              Context Name (Optional)
+            </label>
+            <input
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              placeholder="e.g. Rahul Sharma"
+              id="quick-dial-custom-name"
+              className="w-full h-12 px-3 rounded-xl text-xs font-semibold border text-foreground focus:outline-none focus:ring-2 transition-all shadow-inner"
+              style={{
+                background: "var(--c-input-bg)",
+                borderColor: "var(--c-border)",
+              }}
+            />
+          </div>
+        )}
 
         <div className="flex gap-2 shrink-0">
           <button
@@ -250,4 +356,3 @@ export function PlaceCall() {
     </div>
   );
 }
-
