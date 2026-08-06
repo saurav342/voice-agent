@@ -14,18 +14,9 @@ import { voicesRouter } from "./routes/voices.routes.js";
 import { webhooksRouter } from "./routes/webhooks.routes.js";
 import { dashboardRouter } from "./routes/dashboard.routes.js";
 
-import fs from "node:fs";
-import path from "node:path";
-
 export function createApp(): Express {
   const app = express();
   app.use(cors());
-
-  const recordingsDir = path.join(process.cwd(), "recordings");
-  if (!fs.existsSync(recordingsDir)) {
-    fs.mkdirSync(recordingsDir, { recursive: true });
-  }
-  app.use("/recordings", express.static(recordingsDir));
   // Capture the raw request body before JSON parsing so the Voicelink
   // webhook receiver can verify its HMAC signature against the exact
   // bytes the provider signed. Adds <0.1ms per request and is harmless
