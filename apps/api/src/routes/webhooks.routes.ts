@@ -94,15 +94,18 @@ webhooksRouter.post("/voicelink", async (req, res) => {
       status, durationSec: c.durationSec ?? 0, updatedAt: now,
       providerCallId: normalizedCallId,
     };
-    if (typeof rawRecordingUrl === "string" && rawRecordingUrl.trim().length > 0) {
-      setFields.recordingUrl = rawRecordingUrl;
-    }
-
     if (normalizedCallId) {
       const callId = extractCallIdFromPayload(raw);
       const query: any = callId
         ? { _id: callId }
         : { providerCallId: normalizedCallId };
+
+      const existingCall = await db.collection("calls").findOne(query);
+      if (typeof rawRecordingUrl === "string" && rawRecordingUrl.trim().length > 0) {
+        if (!existingCall?.recordingUrl || !existingCall.recordingUrl.includes("/recordings/")) {
+          setFields.recordingUrl = rawRecordingUrl;
+        }
+      }
 
       await db.collection("calls").updateOne(
         query,

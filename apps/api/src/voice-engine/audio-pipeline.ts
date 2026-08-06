@@ -174,7 +174,7 @@ export function pcm16Resample(pcm: Buffer, inRate: number, outRate: number): Buf
   if (inSamples === 0 || inRate === outRate) return pcm;
   const outSamples = Math.max(1, Math.round((inSamples * outRate) / inRate));
   const out = Buffer.alloc(outSamples * 2);
-  const step = outSamples > 1 ? (inSamples - 1) / (outSamples - 1) : 0;
+  const step = inRate / outRate;
   for (let j = 0; j < outSamples; j++) {
     const pos = j * step;
     const i0 = Math.floor(pos);

@@ -10,9 +10,12 @@ import {
   pcm16_24kToMulaw8k,
   alaw8kToPcm16_24k,
   pcm16_24kToAlaw8k,
+  mulawToPcm16,
+  alawToPcm16,
   makeResampleState,
   type ResampleState,
 } from "./audio-pipeline.js";
+import { saveLocalWavRecording } from "../lib/local-recorder.js";
 
 const log = createLogger("session");
 
@@ -160,9 +163,9 @@ export class CallSession {
   /**
    * Telephony companding codec, learned from the start frame's
    * `media_format.encoding`. VoiceLink = "audio/alaw"; Twilio = µ-law.
-   * Default to µ-law (mulaw) so standard tests and Twilio conform.
+   * Default to A-law (alaw) for VoiceLink / Indian telephony carrier compatibility.
    */
-  private telephonyEncoding = "audio/mulaw";
+  private telephonyEncoding = "audio/alaw";
   /** Outbound resampler state — preserved across audio frames. */
   private outboundResample: ResampleState = makeResampleState();
   /** Accumulated call transcript turns. */
@@ -181,6 +184,10 @@ export class CallSession {
   /** Streaming session id echoed back to VoiceLink on outbound media. */
   private streamSid?: string;
   private customParameters: Record<string, string> = {};
+  /** Accumulated 8 kHz PCM16 audio chunks for local 2-way call recording. */
+  private inboundPcmChunks: Buffer[] = [];
+  private outboundPcmChunks: Buffer[] = [];
+
   /** Bytes per 20 ms frame at 8 kHz: µ-law/A-law = 1 byte/sample = 160. */
   private static readonly FRAME_BYTES = 160;
   /** A-law digital silence is 0xD5; µ-law is 0xFF. */
@@ -387,6 +394,12 @@ export class CallSession {
         envelope.stream_sid = this.streamSid;
       }
       this.socket.send(JSON.stringify(envelope));
+
+      // Record outbound agent audio (decode companded 8 kHz frame to 8 kHz PCM16)
+      const pcm8kOut = this.telephonyEncoding.includes("mulaw") || this.telephonyEncoding.includes("pcmu")
+        ? mulawToPcm16(frame)
+        : alawToPcm16(frame);
+      this.outboundPcmChunks.push(pcm8kOut);
     }, 20);
   }
 
@@ -478,6 +491,13 @@ export class CallSession {
     if (msg.event === "media" && msg.media?.payload) {
       if (this.hangupInitiated) return;
       const wireFrame = Buffer.from(msg.media.payload, "base64");
+
+      // Record inbound user audio (decode companded 8 kHz wireFrame to 8 kHz PCM16)
+      const pcm8kIn = this.telephonyEncoding.includes("mulaw") || this.telephonyEncoding.includes("pcmu")
+        ? mulawToPcm16(wireFrame)
+        : alawToPcm16(wireFrame);
+      this.inboundPcmChunks.push(pcm8kIn);
+
       this.cfg.provider.sendAudio(this.telephonyToProvider(wireFrame));
     } else if (msg.event === "text" && msg.text) {
       if (this.hangupInitiated) return;
@@ -597,6 +617,25 @@ export class CallSession {
       this.analyzeAndStoreCallDetails().catch((err) =>
         log.error({ err, callId: this.cfg.callId }, "background call analysis failed"),
       );
+    }
+
+    // Save local 2-way mixed WAV recording
+    const localRecordingUrl = saveLocalWavRecording(
+      this.cfg.callId,
+      this.inboundPcmChunks,
+      this.outboundPcmChunks,
+    );
+    if (localRecordingUrl) {
+      try {
+        const db = getDb();
+        await db.collection<Call>("calls").updateOne(
+          { _id: this.cfg.callId },
+          { $set: { recordingUrl: localRecordingUrl, updatedAt: new Date() } },
+        );
+        log.info({ callId: this.cfg.callId, localRecordingUrl }, "updated call row with local 2-way recording URL");
+      } catch (err) {
+        log.error({ err, callId: this.cfg.callId }, "failed to set local recording URL");
+      }
     }
 
     const ms = Date.now() - this.startedAt;
